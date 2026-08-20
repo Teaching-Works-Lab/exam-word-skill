@@ -1,13 +1,15 @@
 ---
-name: mechanical-exam-word
-description: Use when mechanical college exam files need Word-to-Word comparison, format-difference checking, standard-template normalization, exam DOCX repair, or PDF-to-editable-Word conversion; triggers include 对比两个Word, 格式差异, 改格式, 套用标准模板, 修正试卷格式, PDF转Word, 试卷排版, 页码, 得分表, and pagination drift.
+name: exam-word
+description: Use when exam or test-paper files from any department or subject need Word-to-Word comparison, format-difference checking, standard-template normalization, exam DOCX repair, or PDF-to-editable-Word conversion; triggers include 试卷改格式, 对比两个Word, 格式差异, 套用试卷模板, 修正试卷格式, PDF转试卷Word, 试卷排版, 页码, 得分表, and pagination drift. Do not use for ordinary non-exam Word editing.
 ---
 
-# Mechanical Exam Word
+# Exam Word
 
 ## Overview
 
-Use the retained mechanical college exam template as the formatting authority and the supplied Word/PDF as the content authority. Keep comparison read-only unless the user explicitly requests correction.
+Use the retained standard exam template as the formatting authority and the supplied Word/PDF as the content authority. Apply the workflow across departments and subjects, including engineering, computer science, mathematics, and general education. Keep comparison read-only unless the user explicitly requests correction.
+
+Preserve subject-specific content exactly: department and course names, questions, source code, formulas, diagrams, scoring, and answer-space intent come from the source. The template controls page geometry, typography, tables, headers, footers, and pagination—not academic content.
 
 ## First Action: Route Deterministically
 
@@ -24,6 +26,8 @@ After routing, use `documents:documents` for DOCX creation, editing, rendering, 
 | `compare-and-fix` | Two Word files plus comparison and correction intent | Report and new corrected DOCX |
 
 When intent remains ambiguous, choose `inspect`. Never overwrite an input.
+
+Explicit invocation is `$exam-word`. Also allow implicit invocation for clear natural-language exam requests such as “把这份计算机试卷改成标准格式”“对比这两份试卷 Word”“把试卷 PDF 转成可编辑 Word”. A department name alone is not a trigger; the request must concern an exam/test paper and one of the supported operations.
 
 ## Stable Workflow
 

@@ -1,6 +1,6 @@
 interface:
-  display_name: "机械学院试卷 Word"
-  short_description: "对比、检查、套版并验证机械学院标准试卷 Word"
-  default_prompt: "Use $mechanical-exam-word to compare or standardize the attached exam files without overwriting the originals."
+  display_name: "试卷 Word 标准化"
+  short_description: "跨学院对比、检查、套版并验证标准试卷 Word"
+  default_prompt: "Use $exam-word to compare or standardize the attached exam files without overwriting the originals or changing academic content."
 policy:
   allow_implicit_invocation: true

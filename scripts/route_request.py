@@ -5,7 +5,24 @@ from pathlib import Path
 
 COMPARE_TERMS = ("对比", "比较", "差异", "diff", "compare")
 INSPECT_TERMS = ("检查", "审查", "核对", "inspect", "audit")
-MODIFY_TERMS = ("修正", "修改", "改格式", "套用", "套版", "统一", "标准化", "整理", "fix", "normalize", "apply")
+MODIFY_TERMS = (
+    "修正",
+    "修改",
+    "改格式",
+    "改成标准格式",
+    "改为标准格式",
+    "调整格式",
+    "规范格式",
+    "重新排版",
+    "套用",
+    "套版",
+    "统一",
+    "标准化",
+    "整理",
+    "fix",
+    "normalize",
+    "apply",
+)
 CONVERT_TERMS = ("转换", "转成", "转为", "可编辑", "convert")
 
 
@@ -39,7 +56,7 @@ def route_request(request: str, files: list[str]) -> str:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Route a mechanical exam Word/PDF request")
+    parser = argparse.ArgumentParser(description="Route an exam Word/PDF request")
     parser.add_argument("request")
     parser.add_argument("files", nargs="+")
     parser.add_argument("--json", action="store_true")

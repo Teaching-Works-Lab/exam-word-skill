@@ -52,7 +52,7 @@ class BuildAndVerifyTests(unittest.TestCase):
                         "metadata": {
                             "school": "沧州交通学院",
                             "academic_term": "2025－2026学年第二学期",
-                            "unit": "机械学院",
+                            "unit": "计算机与信息技术学院",
                             "teacher": "测试教师",
                             "course": "测试课程",
                             "paper": "A 卷",
@@ -105,7 +105,7 @@ class BuildAndVerifyTests(unittest.TestCase):
                         "metadata": {
                             "school": "沧州交通学院",
                             "academic_term": "2025－2026学年第二学期",
-                            "unit": "机械学院",
+                            "unit": "计算机与信息技术学院",
                             "teacher": "测试教师",
                             "course": "测试课程",
                             "summary": "本试卷共有两道大题（满分：100 分）",

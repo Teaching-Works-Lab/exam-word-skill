@@ -29,7 +29,7 @@ The builder accepts UTF-8 JSON with `metadata` and `pages`:
   "metadata": {
     "school": "沧州交通学院",
     "academic_term": "2025－2026学年第二学期",
-    "unit": "机械学院",
+    "unit": "计算机与信息技术学院",
     "teacher": "命题教师",
     "course": "课程名称",
     "paper": "A 卷",

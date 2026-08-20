@@ -1,18 +1,18 @@
-# Mechanical Exam Word Skill Implementation Plan
+# Exam Word Skill Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build, validate, install, and privately publish a reusable multi-mode Word/PDF exam formatting skill.
+**Goal:** Build, validate, install, and publish a reusable multi-mode Word/PDF exam formatting skill.
 
 **Architecture:** A concise routing skill delegates deterministic work to focused Python scripts and keeps the canonical DOCX template as a versioned asset. Structured JSON separates content extraction from document generation, while OOXML and Word-render checks protect template fidelity.
 
 **Tech Stack:** Python 3.12, `python-docx`, OOXML ZIP processing, Microsoft Word COM, pytest, Git, GitHub CLI.
 
-**Spec:** `docs/superpowers/specs/2026-08-20-mechanical-exam-word-skill-design.md`
+**Spec:** `docs/superpowers/specs/2026-08-20-exam-word-skill-design.md`
 
 ## Global Constraints
 
-- Repository and GitHub visibility must remain Private.
+- Repository visibility follows the user's explicit publication choice.
 - Never overwrite user inputs.
 - Never commit source exam PDFs, generated exam outputs, QA renders, caches, credentials, or personal data.
 - Python source and text files use UTF-8; Chinese paths are passed through `pathlib.Path`, not inline shell scripts.
@@ -85,7 +85,7 @@
 - [ ] Implement structural and optional Word-render verification.
 - [ ] Run all tests and inspect representative render.
 
-### Task 5: Packaging and Private Publication
+### Task 5: Packaging and Publication
 
 **Files:**
 - Create: `.gitignore`
@@ -93,10 +93,10 @@
 
 **Interfaces:**
 - Consumes: Verified skill directory.
-- Produces: Installed personal skill and private GitHub repository `Teaching-Works-Lab/mechanical-exam-word-skill`.
+- Produces: Installed personal skill and GitHub repository `Teaching-Works-Lab/exam-word-skill`.
 
 - [ ] Run skill and Unicode validators.
 - [ ] Inspect every staged path and secret-scan the repository.
 - [ ] Initialize Git and commit only verified skill files.
-- [ ] Create the GitHub repository with `--private`.
-- [ ] Push the verified default branch and confirm private visibility.
+- [ ] Create or update the GitHub repository with the requested visibility.
+- [ ] Push the verified default branch and confirm repository visibility.
