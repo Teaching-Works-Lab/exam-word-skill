@@ -5,7 +5,7 @@ from pathlib import Path
 
 COMPARE_TERMS = ("对比", "比较", "差异", "diff", "compare")
 INSPECT_TERMS = ("检查", "审查", "核对", "inspect", "audit")
-MODIFY_TERMS = ("修正", "修改", "套用", "套版", "统一", "标准化", "整理", "fix", "normalize", "apply")
+MODIFY_TERMS = ("修正", "修改", "改格式", "套用", "套版", "统一", "标准化", "整理", "fix", "normalize", "apply")
 CONVERT_TERMS = ("转换", "转成", "转为", "可编辑", "convert")
 
 

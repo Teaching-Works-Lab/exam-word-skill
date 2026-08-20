@@ -1,6 +1,6 @@
 ---
 name: mechanical-exam-word
-description: Use when mechanical college exam files need Word-to-Word comparison, format-difference checking, standard-template normalization, exam DOCX repair, or PDF-to-editable-Word conversion; triggers include 对比两个Word, 格式差异, 套用标准模板, 修正试卷格式, PDF转Word, 试卷排版, 页码, 得分表, and pagination drift.
+description: Use when mechanical college exam files need Word-to-Word comparison, format-difference checking, standard-template normalization, exam DOCX repair, or PDF-to-editable-Word conversion; triggers include 对比两个Word, 格式差异, 改格式, 套用标准模板, 修正试卷格式, PDF转Word, 试卷排版, 页码, 得分表, and pagination drift.
 ---
 
 # Mechanical Exam Word
@@ -19,7 +19,7 @@ After routing, use `documents:documents` for DOCX creation, editing, rendering, 
 |---|---|---|
 | `compare` | Two Word files plus 对比/比较/差异 | JSON and Markdown difference report |
 | `inspect` | One Word plus 检查/核对, or unclear intent | Read-only report |
-| `normalize` | One Word plus 修正/套用/统一/标准化 | New corrected DOCX |
+| `normalize` | One Word plus 改格式/修正/套用/统一/标准化 | New corrected DOCX |
 | `pdf-to-word` | PDF plus 转换/可编辑/套模板 | New editable DOCX |
 | `compare-and-fix` | Two Word files plus comparison and correction intent | Report and new corrected DOCX |
 

@@ -12,6 +12,7 @@ class RouteRequestTests(unittest.TestCase):
             ("对比这两个 Word 的内容和格式差异", ["标准.docx", "试卷.docx"], "compare"),
             ("检查这份 Word 是否符合标准模板", ["试卷.docx"], "inspect"),
             ("按标准模板修正并统一这份 Word", ["试卷.docx"], "normalize"),
+            ("帮我改格式，不改题目内容", ["试卷.docx"], "normalize"),
             ("把这个 PDF 转成可编辑的标准试卷 Word", ["试卷.pdf"], "pdf-to-word"),
             ("对比这两个 Word 并按模板修正", ["标准.docx", "试卷.docx"], "compare-and-fix"),
             ("帮我处理一下这个文件", ["试卷.docx"], "inspect"),
