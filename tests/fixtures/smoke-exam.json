@@ -1,0 +1,33 @@
+{
+  "metadata": {
+    "school": "沧州交通学院",
+    "academic_term": "2025－2026学年第二学期",
+    "unit": "机械学院",
+    "teacher": "测试教师",
+    "course": "Skill 回归测试课程",
+    "paper": "A 卷",
+    "exam_mode": "闭卷",
+    "summary": "本试卷共有两道大题（满分：100 分）"
+  },
+  "score_table": [
+    ["题号", "一", "二", "总分"],
+    ["分数", "40", "60", "100"],
+    ["得分", "", "", ""]
+  ],
+  "pages": [
+    {
+      "blocks": [
+        {"type": "heading", "text": "一、单项选择题（满分40分，共1题）"},
+        {"type": "question", "text": "1、以下哪一项用于验证试卷生成流程？（40分）"},
+        {"type": "option-row", "items": ["A. 路由", "B. 构建", "C. 渲染", "D. 以上全部"]}
+      ]
+    },
+    {
+      "blocks": [
+        {"type": "heading", "text": "二、综合题（满分60分，共1题）"},
+        {"type": "question", "text": "1、说明输入门、内容门、结构门和视觉门的作用。（60分）"},
+        {"type": "spacer", "text": "", "after_pt": 120}
+      ]
+    }
+  ]
+}
