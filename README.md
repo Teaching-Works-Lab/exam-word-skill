@@ -4,6 +4,8 @@
 
 显式触发名称：`$exam-word`
 
+它属于 [Teaching Works Lab 课程教学 Skill 体系](https://github.com/Teaching-Works-Lab)，负责试卷 Word 的对比与规范化；课程考核设计由 `course-teaching-workflows` 负责，课程考核资料归档由 `course-assessment-archive-skill` 负责。
+
 ## 能做什么
 
 - **单个 Word 改格式**：保留题目内容，按标准模板生成新的修正版 DOCX。
@@ -54,6 +56,15 @@ $exam-word 帮我把这份程序设计试卷按标准模板改格式，不改题
 扫描件、复杂公式、浮动图片和特殊分页可能需要 OCR 或人工复核；遇到内容不清、分值冲突或模板不唯一时，Skill 会停止猜测并说明问题。
 
 ## 安装
+
+推荐先添加组织 Marketplace，再选择安装本 Plugin：
+
+```text
+codex plugin marketplace add Teaching-Works-Lab/.github
+codex plugin add exam-word-skill@teaching-works-lab
+```
+
+也可以继续按独立 Skill 方式安装：
 
 在 PowerShell 中克隆到 Codex Skills 目录：
 
