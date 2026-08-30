@@ -1,0 +1,34 @@
+{
+  "name": "exam-word-skill",
+  "version": "0.1.0",
+  "description": "Compare, normalize, repair, and verify university exam Word documents.",
+  "author": {
+    "name": "Teaching Works Lab",
+    "url": "https://github.com/Teaching-Works-Lab"
+  },
+  "homepage": "https://github.com/Teaching-Works-Lab/exam-word-skill",
+  "repository": "https://github.com/Teaching-Works-Lab/exam-word-skill",
+  "keywords": [
+    "education",
+    "exam",
+    "word",
+    "document-formatting"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Exam Word Skill",
+    "shortDescription": "Compare and normalize university exam Word files.",
+    "longDescription": "Compare exam content and formatting, normalize university test papers to a retained Word template, reconstruct editable Word from PDF, and verify the result.",
+    "developerName": "Teaching Works Lab",
+    "category": "Education",
+    "capabilities": [
+      "Compare exam Word files",
+      "Normalize exam documents to a template",
+      "Verify DOCX structure and rendering"
+    ],
+    "defaultPrompt": [
+      "Compare these exam Word files and report content and format differences.",
+      "Normalize this exam to the standard template without changing its academic content."
+    ]
+  }
+}
