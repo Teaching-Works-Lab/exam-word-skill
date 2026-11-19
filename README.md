@@ -55,6 +55,20 @@ $exam-word 帮我把这份程序设计试卷按标准模板改格式，不改题
 
 扫描件、复杂公式、浮动图片和特殊分页可能需要 OCR 或人工复核；遇到内容不清、分值冲突或模板不唯一时，Skill 会停止猜测并说明问题。
 
+## WorkBuddy 安装（Skill）
+
+本仓库根目录的 `SKILL.md` 即 WorkBuddy Skill 入口，直接克隆到 WorkBuddy 的 skills 目录即可使用：
+
+```bash
+git clone https://github.com/Teaching-Works-Lab/exam-word-skill.git ~/.workbuddy/skills/exam-word-skill
+```
+
+保留目录结构，不要单独复制 `SKILL.md`——`references/`、`data/`、`scripts/` 都是 Skill 的组成部分。安装后无需重启或注册，下次对话即可通过 `@skill:exam-word-skill` 显式调用，或由 WorkBuddy 按 Skill 描述自动选择。
+
+运行环境：运行依赖见仓库脚本与依赖清单；Skill 加载后按需安装。
+
+WorkBuddy 通过 `~/.workbuddy/skills/` 目录发现 Skill，不使用 Codex Marketplace；两种方式可并存，互不干扰。
+
 ## 安装
 
 推荐先添加组织 Marketplace，再选择安装本 Plugin：
