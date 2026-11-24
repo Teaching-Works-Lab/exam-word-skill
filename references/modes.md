@@ -91,3 +91,14 @@ Papers containing multi-line source code (程序阅读 / 查错与测试 / 代�
 ```
 
 `code` renders as a borderless, unnumbered block (Consolas + 宋体, 9.5pt / 12.5pt line spacing) indented 425 twips; `option-row` places two or four options on one line using widened tab stops. The builder wraps each question in a borderless table row with `w:cantSplit` so a stem, its code and its options can never be split across pages. `build_from_spec.py` does not recognise `code` and must not be used for these papers. See `references/exam-authoring-pitfalls.md` §9.
+
+### Answer key / rubric
+
+参考答案与评分细则、客观题答案速查、A/B 卷答案对照用 `scripts/build_answer_docx.py` 构建，不走学生卷路线：
+
+- **教师卷头**：学校 / 学期·命题单位·命题教师 / 课程·卷别 / 「参考答案与评分细则 · 教师用（请勿下发给学生）」，**无学号姓名栏、无卷首得分表**；卷头用全角空格串联而非 tab（长学院名会把姓名挤出页外）。
+- **blocks**：`heading` / `subheading`（level 3/4）/ `text`（可 `bold`）/ `bullet`（可 `mark`）/ `quote` / `table`（`rows`, `header`）/ `code`（`lines`）/ `spacer`。
+- **表格**：宽表（> 5 列，如双栏答案速查）自动拆成左右两张；首行 `tblHeader` 跨页重复；≤ 8 行的小表整表不拆。
+- **绑定**：「评分要点：」等以冒号结尾的标签行，若下一块是 `table` / `code`，自动与它同页。
+
+metadata 继承试卷 spec，只改 `paper` / `summary`，并设 `doc_type: "answer"`。生成后仍走 `verify_docx.py` + PDF 逐页复核。See `references/exam-authoring-pitfalls.md` §10.

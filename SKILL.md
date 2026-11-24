@@ -1,6 +1,6 @@
 ---
 name: exam-word
-description: Use when exam or test-paper files from any department or subject need Word-to-Word comparison, format-difference checking, standard-template normalization, exam DOCX repair, PDF-to-editable-Word conversion, or authoring a new exam paper from a question bank / syllabus; triggers include 试卷改格式, 对比两个Word, 格式差异, 套用试卷模板, 修正试卷格式, PDF转试卷Word, 试卷排版, 页码, 得分表, 出题, 组卷, 生成试卷, 试卷明细, A/B卷, 得分表留空, 小问逐行, 选项跨页, 程序阅读题, 查错题, 代码块排版, 代码不跨页, 题号编排, 小分标注, 整数分值, and pagination drift. Do not use for ordinary non-exam Word editing.
+description: Use when exam or test-paper files from any department or subject need Word-to-Word comparison, format-difference checking, standard-template normalization, exam DOCX repair, PDF-to-editable-Word conversion, or authoring a new exam paper from a question bank / syllabus; triggers include 试卷改格式, 对比两个Word, 格式差异, 套用试卷模板, 修正试卷格式, PDF转试卷Word, 试卷排版, 页码, 得分表, 出题, 组卷, 生成试卷, 试卷明细, A/B卷, 得分表留空, 小问逐行, 选项跨页, 程序阅读题, 查错题, 代码块排版, 代码不跨页, 题号编排, 小分标注, 整数分值, 参考答案, 评分细则, 答案卷, 答案速查, A/B卷答案对照, and pagination drift. Do not use for ordinary non-exam Word editing.
 ---
 
 # Exam Word
@@ -47,6 +47,7 @@ When the user asks to **author** a paper (出题 / 组卷 / 生成试卷 / 出�
 2. Produce a **paper-detail alignment draft** first (依据材料 / 题库盘点 / 卷面结构 / 逐题明细 / 单元与课程目标覆盖 / 待确认事项). Do not build or deliver the final DOCX until the user confirms the exam type, section structure, score split, and paper count (A only or A/B).
 3. Keep one structured JSON as the single content source. Generate the spec, the detail sheet, and the separate answer key from one generator script so they cannot drift; never hand-edit the DOCX.
 4. Apply the gates in `references/exam-authoring-pitfalls.md` §5 (verify → content checks → PDF render → per-page split detection → PNG visual review) before delivery. `verify_docx.py` passing is necessary but **not sufficient**.
+5. For the **answer key** (参考答案与评分细则 / 客观题答案速查 / A/B 卷答案对照), read pitfalls §10 and build with `scripts/build_answer_docx.py`. It uses a teacher header (no 学号/姓名/得分表) and keeps code blocks and table rows unbreakable; never reuse the student-paper layout.
 
 If the syllabus says 考查 (no written exam) while the user requests a written final, flag the conflict explicitly instead of silently changing the assessment design.
 
@@ -81,6 +82,8 @@ Do not copy source exam PDFs, generated exams, student data, credentials, or QA 
 | Deliver once `verify_docx.py` passes | Render PDF and run per-page split checks (pitfalls §5) |
 | Generate A and B from the same pool and eyeball for overlap | Run the A/B dedup gate: stems, option sets, answer sequence, subjective-answer similarity (pitfalls §8) |
 | Hand-edit the generated DOCX | Change the spec/generator and rebuild |
+| Reuse the student-paper layout for the answer key | Teacher header, no 学号/姓名/score table (pitfalls §10.2) |
+| Hand-copy A/B answer differences into a comparison table | Parse both answer files and compute the counts (pitfalls §10.5) |
 | Render a code-heavy paper with `build_from_spec.py` | Use `scripts/build_code_exam.py` (pitfalls §9.5) |
 | Print internal unit IDs like `A9+A10` on the paper | Keep them in the teacher detail sheet only; number questions per section (pitfalls §9.1) |
 | Use fractional marks or put the score before the sentence | Integers only, suffix `（N 分）` at sentence end, sync the answer key (pitfalls §9.2) |
@@ -101,6 +104,7 @@ python scripts/route_request.py "对比这两个 Word" standard.docx exam.docx
 python scripts/compare_docx.py standard.docx exam.docx --json-output diff.json --markdown-output diff.md
 python scripts/build_from_spec.py assets/reference.docx exam.json output.docx
 python scripts/build_code_exam.py exam.json output.docx          # code-heavy papers (pitfalls §9)
+python scripts/build_answer_docx.py answer.json answer.docx     # answer key / rubric (pitfalls §10)
 python scripts/verify_docx.py output.docx assets/reference.docx
 ```
 
