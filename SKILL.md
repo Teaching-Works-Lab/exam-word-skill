@@ -79,6 +79,7 @@ Do not copy source exam PDFs, generated exams, student data, credentials, or QA 
 | Keep （1）（2）（3）（4） in one paragraph | Split into indented one-line blocks (pitfalls §4.4) |
 | Add `keep_next` to every question | Skip judgment questions without options (pitfalls §4.2) |
 | Deliver once `verify_docx.py` passes | Render PDF and run per-page split checks (pitfalls §5) |
+| Generate A and B from the same pool and eyeball for overlap | Run the A/B dedup gate: stems, option sets, answer sequence, subjective-answer similarity (pitfalls §8) |
 | Hand-edit the generated DOCX | Change the spec/generator and rebuild |
 
 If the first action is not the router, the template is re-derived, or a source copy is retained, stop and return to this workflow.
