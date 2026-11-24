@@ -1,6 +1,6 @@
 ---
 name: exam-word
-description: Use when exam or test-paper files from any department or subject need Word-to-Word comparison, format-difference checking, standard-template normalization, exam DOCX repair, PDF-to-editable-Word conversion, or authoring a new exam paper from a question bank / syllabus; triggers include 试卷改格式, 对比两个Word, 格式差异, 套用试卷模板, 修正试卷格式, PDF转试卷Word, 试卷排版, 页码, 得分表, 出题, 组卷, 生成试卷, 试卷明细, A/B卷, 得分表留空, 小问逐行, 选项跨页, and pagination drift. Do not use for ordinary non-exam Word editing.
+description: Use when exam or test-paper files from any department or subject need Word-to-Word comparison, format-difference checking, standard-template normalization, exam DOCX repair, PDF-to-editable-Word conversion, or authoring a new exam paper from a question bank / syllabus; triggers include 试卷改格式, 对比两个Word, 格式差异, 套用试卷模板, 修正试卷格式, PDF转试卷Word, 试卷排版, 页码, 得分表, 出题, 组卷, 生成试卷, 试卷明细, A/B卷, 得分表留空, 小问逐行, 选项跨页, 程序阅读题, 查错题, 代码块排版, 代码不跨页, 题号编排, 小分标注, 整数分值, and pagination drift. Do not use for ordinary non-exam Word editing.
 ---
 
 # Exam Word
@@ -43,7 +43,7 @@ Read `references/modes.md` for mode-specific inputs and outputs. Read `reference
 
 When the user asks to **author** a paper (出题 / 组卷 / 生成试卷 / 出一份试卷明细) instead of converting or comparing attached files, the `compare`/`normalize` router modes do not apply. Use this sequence:
 
-1. Read `references/exam-authoring-pitfalls.md` in full before touching the builder. It is the authoritative checklist for content sourcing, score-table blanking, sub-question splitting, pagination guards, and render acceptance; every rule there came from a real rework.
+1. Read `references/exam-authoring-pitfalls.md` in full before touching the builder. It is the authoritative checklist for content sourcing, score-table blanking, sub-question splitting, pagination guards, and render acceptance; every rule there came from a real rework. For **code-heavy papers** (程序阅读 / 查错与测试 / 含多行代码的试卷), §9 is mandatory: build with `scripts/build_code_exam.py` instead of `build_from_spec.py`, which has no `code` block and cannot keep a code block on the same page as its options.
 2. Produce a **paper-detail alignment draft** first (依据材料 / 题库盘点 / 卷面结构 / 逐题明细 / 单元与课程目标覆盖 / 待确认事项). Do not build or deliver the final DOCX until the user confirms the exam type, section structure, score split, and paper count (A only or A/B).
 3. Keep one structured JSON as the single content source. Generate the spec, the detail sheet, and the separate answer key from one generator script so they cannot drift; never hand-edit the DOCX.
 4. Apply the gates in `references/exam-authoring-pitfalls.md` §5 (verify → content checks → PDF render → per-page split detection → PNG visual review) before delivery. `verify_docx.py` passing is necessary but **not sufficient**.
@@ -81,6 +81,10 @@ Do not copy source exam PDFs, generated exams, student data, credentials, or QA 
 | Deliver once `verify_docx.py` passes | Render PDF and run per-page split checks (pitfalls §5) |
 | Generate A and B from the same pool and eyeball for overlap | Run the A/B dedup gate: stems, option sets, answer sequence, subjective-answer similarity (pitfalls §8) |
 | Hand-edit the generated DOCX | Change the spec/generator and rebuild |
+| Render a code-heavy paper with `build_from_spec.py` | Use `scripts/build_code_exam.py` (pitfalls §9.5) |
+| Print internal unit IDs like `A9+A10` on the paper | Keep them in the teacher detail sheet only; number questions per section (pitfalls §9.1) |
+| Use fractional marks or put the score before the sentence | Integers only, suffix `（N 分）` at sentence end, sync the answer key (pitfalls §9.2) |
+| Paste incomplete code fragments, with borders or line numbers | Compilable full program, no border/line number, Consolas + 宋体 (pitfalls §9.3) |
 
 If the first action is not the router, the template is re-derived, or a source copy is retained, stop and return to this workflow.
 
@@ -96,7 +100,8 @@ Use the Python executable returned by the workspace dependency loader.
 python scripts/route_request.py "对比这两个 Word" standard.docx exam.docx
 python scripts/compare_docx.py standard.docx exam.docx --json-output diff.json --markdown-output diff.md
 python scripts/build_from_spec.py assets/reference.docx exam.json output.docx
+python scripts/build_code_exam.py exam.json output.docx          # code-heavy papers (pitfalls §9)
 python scripts/verify_docx.py output.docx assets/reference.docx
 ```
 
-For authored papers, PDF rendering plus per-page split detection is mandatory; see `references/exam-authoring-pitfalls.md` §5. Every layout fix belongs in the spec/generator, never in the DOCX.
+For authored papers, PDF rendering plus per-page split detection is mandatory; see `references/exam-authoring-pitfalls.md` §5. Code-heavy papers additionally follow §9 and build with `scripts/build_code_exam.py`. Every layout fix belongs in the spec/generator, never in the DOCX.

@@ -80,3 +80,14 @@ Never put `（1）…（4）` or `①…⑤` in one paragraph. Split each item i
 ### Render acceptance
 
 `verify_docx.py` only proves template fidelity. Render the DOCX to PDF and check every page for orphan option lines, split stems, and short trailing fragments before delivery. See §5 of the pitfalls reference.
+
+### Code-heavy papers
+
+Papers containing multi-line source code (程序阅读 / 查错与测试 / 代码填空) are built with `scripts/build_code_exam.py`, **not** `build_from_spec.py`. It accepts the same `metadata` / `score_table` / `pages` structure above plus two extra block types:
+
+```json
+{"type": "code", "lines": ["#include <stdio.h>", "int main(void) {", "    return 0;", "}"]}
+{"type": "option-row", "items": ["A. ...", "B. ..."]}
+```
+
+`code` renders as a borderless, unnumbered block (Consolas + 宋体, 9.5pt / 12.5pt line spacing) indented 425 twips; `option-row` places two or four options on one line using widened tab stops. The builder wraps each question in a borderless table row with `w:cantSplit` so a stem, its code and its options can never be split across pages. `build_from_spec.py` does not recognise `code` and must not be used for these papers. See `references/exam-authoring-pitfalls.md` §9.
