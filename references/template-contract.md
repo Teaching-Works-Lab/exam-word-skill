@@ -28,6 +28,10 @@ The builder and verifier require these template parts to remain byte-identical w
 
 The final `sectPr` and page geometry must also match the template. A visual match without these structural checks is insufficient.
 
+## Score Table Values
+
+The three-row score table is a **grading sheet for the marker**, not a student-facing scorecard. For newly authored papers, leave the 分数 and 得分 rows empty (including the total cell); only the 题号 header row is filled. Section scores belong in the section headings. Do not copy the numeric `["分数","40","60","100"]` shape from `tests/` fixtures into a real paper — those fixtures only verify builder behaviour. See `references/exam-authoring-pitfalls.md` §3.
+
 ## Content Authority
 
 - For PDF input, the PDF controls text, question order, figures, scores, and intended page boundaries.

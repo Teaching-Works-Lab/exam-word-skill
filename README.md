@@ -13,6 +13,7 @@
 - **两个 Word 对比**：分别检查内容差异与格式差异。
 - **对比后修正**：输出差异报告，并生成新的修正版 DOCX。
 - **PDF 转试卷 Word**：提取试卷内容，再按模板生成可编辑 DOCX。
+- **从题库/大纲出新卷**：生成结构化试卷、试卷明细与独立答案册，并走一遍 [`references/exam-authoring-pitfalls.md`](references/exam-authoring-pitfalls.md) 的命题与排版门禁。
 
 适用于程序设计、机械、数学、英语等课程。学院或课程名称不决定是否触发；只要任务明确涉及试卷及受支持的操作即可。
 
@@ -52,6 +53,7 @@ $exam-word 帮我把这份程序设计试卷按标准模板改格式，不改题
 3. **模板优先级明确**：用户提供的指定模板优先；否则使用 `assets/reference.docx`。
 4. **结果必须验证**：生成后进行 DOCX 结构检查，并渲染检查全部页面。
 5. **隐私最小化**：仓库和 Skill 不保存原始试卷、学生信息、生成结果或 OCR/渲染缓存。
+6. **新卷生成走门禁**：得分表「分数/得分」行留空给阅卷教师；小问逐行显示；分页必须渲染逐页核查，详见 [`references/exam-authoring-pitfalls.md`](references/exam-authoring-pitfalls.md)。
 
 扫描件、复杂公式、浮动图片和特殊分页可能需要 OCR 或人工复核；遇到内容不清、分值冲突或模板不唯一时，Skill 会停止猜测并说明问题。
 
@@ -95,7 +97,7 @@ exam-word/
 ├── SKILL.md                     # 触发条件、路由和执行规则
 ├── agents/openai.yaml           # Codex 展示名称与默认提示
 ├── assets/reference.docx        # 内置标准试卷模板
-├── references/                  # 模式与模板契约
+├── references/                  # 模式与模板契约、试卷生成踩坑清单（exam-authoring-pitfalls.md）
 ├── scripts/                     # 路由、对比、构建和验证脚本
 └── tests/                       # 回归测试与脱敏测试夹具
 ```
@@ -108,3 +110,5 @@ py -3.12 scripts/route_request.py "帮我把这份试卷改成标准格式" "试
 ```
 
 第二条命令应输出 `normalize`。更详细的执行约束见 [`SKILL.md`](SKILL.md)，模式输入输出见 [`references/modes.md`](references/modes.md)。
+
+从题库或大纲出一份新卷之前，务必先读 [`references/exam-authoring-pitfalls.md`](references/exam-authoring-pitfalls.md)：得分表留空、小问逐行、断页防护、渲染验收这些坑都写在里面。

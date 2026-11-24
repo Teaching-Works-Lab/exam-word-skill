@@ -43,6 +43,7 @@ def _configure_paragraph(paragraph, block):
     formatting.space_after = Pt(block.get("after_pt", 0))
     formatting.line_spacing = Pt(block.get("line_pt", 20))
     formatting.keep_with_next = bool(block.get("keep_next", False))
+    formatting.keep_together = bool(block.get("keep_together", False))
     if "left_twips" in block:
         formatting.left_indent = Twips(block["left_twips"])
     if "first_twips" in block:

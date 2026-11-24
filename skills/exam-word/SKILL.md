@@ -8,3 +8,5 @@ description: Use when exam or test-paper files from any department or subject ne
 Read and follow the canonical [Exam Word instructions](../../SKILL.md) in full. Resolve the canonical instructions and every linked script, template, and reference from the repository root.
 
 This file is only the Codex Plugin packaging entry. The explicit Skill trigger remains `$exam-word`.
+
+When the request is to author a new paper from a question bank or syllabus, also follow `references/exam-authoring-pitfalls.md` from the repository root before building.

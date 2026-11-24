@@ -127,6 +127,92 @@ class BuildAndVerifyTests(unittest.TestCase):
 
             self.assertEqual([cell.text for cell in table.rows[0].cells][4:], ["", "", "", ""])
 
+    def test_paragraph_flow_controls_are_applied(self):
+        """Regression: keep_next / keep_together / indents must survive into the DOCX."""
+        with TemporaryDirectory() as directory:
+            temp_path = Path(directory)
+            template = ROOT / "assets" / "reference.docx"
+            spec_path = temp_path / "spec.json"
+            output = temp_path / "output.docx"
+            spec_path.write_text(
+                json.dumps(
+                    {
+                        "metadata": {
+                            "school": "测试学校",
+                            "academic_term": "2025－2026学年第二学期",
+                            "unit": "测试学院",
+                            "teacher": "测试教师",
+                            "course": "测试课程",
+                            "summary": "本试卷共有一道大题（满分：100 分）",
+                        },
+                        "pages": [
+                            {
+                                "blocks": [
+                                    {"type": "heading", "text": "一、测试题"},
+                                    {
+                                        "type": "question",
+                                        "text": "1、题干",
+                                        "keep_next": True,
+                                        "keep_together": True,
+                                        "left_twips": 425,
+                                        "first_twips": -142,
+                                    },
+                                ]
+                            }
+                        ],
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+            build_from_spec.build_document(template, spec_path, output)
+            paragraph = [p for p in Document(output).paragraphs if p.text.strip() == "1、题干"][0]
+            fmt = paragraph.paragraph_format
+            self.assertTrue(fmt.keep_with_next)
+            self.assertTrue(fmt.keep_together)
+            self.assertEqual(fmt.left_indent.twips, 425)
+            self.assertEqual(fmt.first_line_indent.twips, -142)
+
+    def test_score_table_rows_are_blank_for_new_papers(self):
+        """Regression: 分数/得分 rows are grading space, not printed scores."""
+        with TemporaryDirectory() as directory:
+            temp_path = Path(directory)
+            template = ROOT / "assets" / "reference.docx"
+            spec_path = temp_path / "spec.json"
+            output = temp_path / "output.docx"
+            spec_path.write_text(
+                json.dumps(
+                    {
+                        "metadata": {
+                            "school": "测试学校",
+                            "academic_term": "2025－2026学年第二学期",
+                            "unit": "测试学院",
+                            "teacher": "测试教师",
+                            "course": "测试课程",
+                            "summary": "本试卷共有一道大题（满分：100 分）",
+                        },
+                        "score_table": [
+                            ["题号", "一", "二", "三", "四", "五", "", "总分"],
+                            ["分数", "", "", "", "", "", "", ""],
+                            ["得分", "", "", "", "", "", "", ""],
+                        ],
+                        "pages": [{"blocks": [{"type": "text", "text": "测试"}]}],
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+            build_from_spec.build_document(template, spec_path, output)
+            table = Document(output).tables[0]
+            for row in table.rows[1:]:
+                self.assertEqual([c.text for c in row.cells][1:], [""] * 7)
+
+    def test_skill_points_to_authoring_pitfalls(self):
+        """Regression: the authoring checklist stays wired into the Skill entry."""
+        skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        self.assertIn("references/exam-authoring-pitfalls.md", skill)
+        self.assertTrue((ROOT / "references" / "exam-authoring-pitfalls.md").exists())
+
 
 if __name__ == "__main__":
     unittest.main()
