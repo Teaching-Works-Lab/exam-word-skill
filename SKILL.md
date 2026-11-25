@@ -92,6 +92,7 @@ Do not copy source exam PDFs, generated exams, student data, credentials, or QA 
 | Deliver once `verify_docx.py` passes | Render PDF and run per-page split checks (pitfalls §5) |
 | Generate A and B from the same pool and eyeball for overlap | Run the A/B dedup gate: stems, option sets, answer sequence, subjective-answer similarity (pitfalls §8) |
 | Check only formatting and assume the questions are sound | Run `scripts/check_paper_content.py` for intra-paper duplication, front-to-back answer leakage, undefined slogan-style stems, and unit coverage; a paper with objective answers that reproduce later rubric points or asks students to guess自造代称 is not deliverable (pitfalls §13) |
+| Trust leakage findings from an objective.json that came from another course/paper (same question count) | `check_source_alignment` fails fast (exit 2) when objective stems don't match the spec; only read `leakage` when `source_alignment.verdict==pass` (pitfalls §13.8) |
 | Hand-edit the generated DOCX | Change the spec/generator and rebuild |
 | Reuse the student-paper layout for a §10 teacher booklet | Teacher header, no 学号/姓名/score table (pitfalls §10.2); for an answer-keyed paper the student layout is required (pitfalls §11) |
 | Build an 答案卷 with the §10 teacher-header builder | Default to the answer-keyed paper from the student spec (§11.1); §10 booklet is an explicit opt-in |
@@ -132,7 +133,7 @@ python scripts/build_answer_keyed_paper.py exam-spec-A.json objective.json answe
 python scripts/derive_answer_keyed_from_docx.py student-final.docx answers.json answer-keyed.docx  # finalized DOCX path (§12.4)
 python scripts/verify_answer_keyed_paper.py answer-keyed.docx
 python scripts/route_request.py "出一下答案"                     # -> answer-keyed-paper (no attachment needed)
-python scripts/check_paper_content.py exam-spec.json objective.json answer.md --blueprint blueprint.json --md-out content-report.md
+python scripts/check_paper_content.py exam-spec.json objective.json answer.md --blueprint blueprint.json --md-out content-report.md  # §13: check report.source_alignment.verdict==pass BEFORE trusting leakage; fail-fast exit 2 on cross-course mismatch (§13.8)
 python scripts/verify_docx.py output.docx assets/reference.docx
 python scripts/check_code_completeness.py paper.md   # §12.8: run-the-code blocks must be full programs
 python scripts/unbold_substems.py paper.docx answer.docx  # §12.9: strip bold from (1)(2) sub-question stems, keep title/header bold

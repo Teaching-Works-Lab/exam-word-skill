@@ -371,6 +371,56 @@ def check_clarity(qs: list[dict]) -> list[dict]:
     return out
 
 
+# ---- 来源亲和性校验：防止拿错课程的 objective.json（§13.8）----
+# objective_claim() 只取 objective 的 answer 字母，题干/选项却来自 spec。
+# 若 objective 是另一门课的题库（题数恰好相同），错字母会索引到错误选项，
+# 产出"看似有证据"的虚假泄题报告。objective 标准格式自带 stem 字段却一直闲置，
+# 这里用它做同卷校验，错配则 fail-fast。
+SOURCE_ALIGN_RATIO = 0.45   # 单题干判定"对齐"的相似度
+SOURCE_ALIGN_PASS = 0.80    # 至少 80% 对齐才算同卷
+SOURCE_ALIGN_FAIL = 0.50    # 低于 50% 判定错配，直接中止
+
+
+def check_source_alignment(qs: list[dict], objective: list[dict]) -> dict:
+    """校验 objective.json 与 spec 是否来自同一份卷。
+
+    返回 {"verdict": pass|warn|fail, ...}。verdict=fail 时必须中止，
+    不得继续产出泄题/重复等结论（那些结论建立在错配之上，不可信）。
+    """
+    n = min(len(qs), len(objective))
+    if n == 0:
+        return {"verdict": "warn", "ratio": 0.0, "aligned": 0, "total": 0,
+                "samples": [], "note": "无题可校验"}
+    scores: list[float] = []
+    samples: list[dict] = []
+    has_stem = 0
+    for i in range(n):
+        o_stem = str(objective[i].get("stem", "") or "").strip()
+        s_stem = str(qs[i].get("stem", "") or "").strip()
+        if o_stem:
+            has_stem += 1
+        r = ratio(o_stem, s_stem) if (o_stem and s_stem) else 0.0
+        scores.append(r)
+        if i < 2:
+            samples.append({"index": i + 1, "spec_stem": s_stem[:60],
+                            "objective_stem": o_stem[:60], "ratio": round(r, 3)})
+    if has_stem == 0:
+        return {"verdict": "warn", "ratio": 0.0, "aligned": 0, "total": n,
+                "samples": samples,
+                "note": "objective.json 全部缺 stem，无法校验来源；请用带 stem 的标准格式"}
+    avg = sum(scores) / len(scores)
+    aligned = sum(1 for r in scores if r >= SOURCE_ALIGN_RATIO)
+    frac = aligned / len(scores)
+    verdict = ("pass" if frac >= SOURCE_ALIGN_PASS else
+               "fail" if frac < SOURCE_ALIGN_FAIL else "warn")
+    note = ("objective 与 spec 题干对齐，可继续" if verdict == "pass" else
+            "疑似跨课程/跨卷错配：objective 题干与 spec 大范围不符，结论不可信" if verdict == "fail" else
+            "部分题干不一致，请人工确认 objective 与 spec 是否同卷")
+    return {"verdict": verdict, "ratio": round(avg, 3), "aligned": aligned,
+            "total": len(scores), "frac": round(frac, 3), "samples": samples,
+            "note": note}
+
+
 def markdown_report(report: dict) -> str:
     lines = ["# 试卷内容质量门禁报告", ""]
     lines.append(f"- 结论：**{'通过' if report['passed'] else '未通过'}**")
@@ -417,6 +467,20 @@ def main(argv: list[str] | None = None) -> int:
     obj_qs = qs[:len(objective)]
     if len(obj_qs) != len(objective):
         raise ValueError(f"spec 题目数 {len(qs)} 与客观题答案数 {len(objective)} 不匹配")
+
+    # §13.8 来源亲和性：题数相同≠同一份卷。先确认 objective 的题干与 spec 对得上，
+    # 否则 answer 字母索引到的是另一门课的选项，后面所有结论都是虚假的。
+    align = check_source_alignment(qs, objective)
+    if align["verdict"] == "fail":
+        detail = json.dumps({"passed": False, "source_alignment": align,
+                             "error": "objective.json 与题干 spec 疑似不是同一份卷，已中止门禁；"
+                                      "请核对来源（课程/试卷/A-B 卷）后重跑，勿采信任何泄题结论"},
+                            ensure_ascii=False, indent=2)
+        print(detail)
+        if args.json_out:
+            args.json_out.write_text(detail + "\n", encoding="utf-8")
+        return 2
+
     obj_claims = []
     for i, item in enumerate(objective):
         q = obj_qs[i]
@@ -445,6 +509,7 @@ def main(argv: list[str] | None = None) -> int:
               if f["severity"] == "error"]
     report = {
         "passed": not errors,
+        "source_alignment": align,
         "duplicates": duplicates,
         "leakage": leakage,
         "clarity": clarity,

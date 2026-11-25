@@ -894,3 +894,45 @@ B 卷 1 处 error 级泄题，例如单选正确选项写「双向实时映射�
 - [ ] 内容门禁 error 已逐条判定性质，误报已记录理由，不盲目改卷
 - [ ] 判定"不重出"前，全部硬门禁（保真/结构/代码/题干/查重）均为 true
 - [ ] `mark_sum` 报分时先读原文核对，区分门禁解析偏差与真实分值错误
+
+### 13.8 objective.json 拿错课程/拿错卷：题数相同≠同一份卷，必须用 stem 做来源亲和性校验（2026-11-24 C&C++ 卷复盘）
+
+**事故经过**：回测 C&C++ 卷时，`check_paper_content.py` 报出多条"前后泄题 error"。
+追查发现喂进去的 `objective.json` 是**另一门课（智能制造装备）的题库**
+（题干是数字孪生、工业机器人），而 spec 是 C&C++ 的。两门课客观题**数量恰好相同**，
+门禁原有的唯一校验（题数匹配）因此放行，产出一堆看似有理有据、实则完全虚假的泄题结论。
+若据此改卷，就是把无关课程的"证据"当成命题缺陷去修，越修越错。
+
+**根因（三层）**：
+1. **数据流设计有缺口**：`objective_claim()` 只用 objective 的 `answer` 字母，
+   题干与选项全部取自 spec。两个来源一旦错配，字母就是错的索引，
+   取到的"正确选项"根本不是本题的选项——拼出的 claim 是"混血"的。
+2. **校验太弱**：只比题数。题数是弱特征，跨课程/跨 A-B 卷都可能相同。
+3. **命名不可信**：中间产物叫 `tmp-paper-A-objective.json` 这类通用名，
+   工作区里同时躺着多门课的同类文件，凭文件名判断极易拿错。
+
+**治本修复（已落地到 `check_paper_content.py`）**：
+objective.json 标准格式**自带 `stem` 字段却一直被闲置**——用它做同卷校验：
+- 新增 `check_source_alignment(qs, objective)`：逐题比对 objective 的 stem 与
+  spec 的题干相似度（`ratio`，阈值 `SOURCE_ALIGN_RATIO=0.45`）。
+- 判定：≥80% 对齐=pass；<50%=**fail 并 fail-fast**（退出码 2，不产出任何泄题/重复结论）；
+  50%~80%=warn 提示人工确认；全部缺 stem=warn 降级放行（兼容极简格式）。
+- 报告新增 `source_alignment` 字段，含对齐率与前两题题干对照，可追溯。
+- 关键顺序：校验必须在 `obj_claims` 构造**之前**——错配时后面所有结论都不可信。
+
+**三条使用纪律**：
+- **先跑门禁的 `--json-out` 报告，看 `source_alignment.verdict` 是否为 pass**，再看 leakage。
+  verdict≠pass 时，leakage/duplicates 一律无视。
+- objective.json 与 spec/answer.md 必须**同一时刻、同一来源**生成；跨会话复用前先核题干首题。
+- 中间产物命名带课程+卷别（如 `ccpp-A-objective.json`），别用 `tmp-paper-A-*` 通用名。
+
+**自检增补**：
+
+- [ ] `source_alignment.verdict == pass` 之后才采信泄题/重复结论
+- [ ] objective.json 的 stem 与 spec 题干逐题对得上（首题对照肉眼可见同课程）
+- [ ] fail-fast（退出码 2）时先修来源，不解析报告里的"泄题"
+
+**回归测试**（`tests/` 可复用）：
+- 错配 objective（他课题干、题数相同）→ expect `verdict=fail`, aligned 0/n, 退出码 2
+- 配套 objective → expect `verdict=pass`, aligned n/n，后续检查执行
+- 无 stem objective → expect `verdict=warn`，降级放行
