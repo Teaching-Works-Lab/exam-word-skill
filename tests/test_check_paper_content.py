@@ -104,12 +104,33 @@ class ContentGateTests(unittest.TestCase):
         self.assertEqual(out["missing"], ["U2"])
         self.assertFalse(out["findings"][0]["suggestion"] == "")
 
+    def test_detects_undefined_slogan_pair(self):
+        qs = [{"section": "四", "label": "四、3",
+               "stem": "3．在训练数据规模有限的图像任务中，说明“改造已有样本”和“借用已有能力”两条思路及适用条件。"}]
+        out = cpc.check_clarity(qs)
+        self.assertTrue(out)
+        self.assertEqual(out[0]["kind"], "题干不清")
+        self.assertEqual(out[0]["severity"], "error")
+        self.assertIn("改造已有样本", out[0]["evidence"])
+
+    def test_detects_vague_reference(self):
+        qs = [{"section": "四", "label": "四、2",
+               "stem": "2．简述数据增强，并说明该做法的适用条件。"}]
+        out = cpc.check_clarity(qs)
+        self.assertTrue(out)
+        self.assertEqual(out[0]["severity"], "warning")
+        self.assertIn("该做法", out[0]["evidence"])
+
     def test_clean_paper_passes(self):
         a = {"label": "一、1", "stem": "1．下列哪一项是输出设备？（　）", "claim": "显示器"}
         b = {"label": "三、1", "stem": "1．二进制 1010 转十进制是多少？（　）", "claim": "x"}
         subj = [{"n": 1, "stem": "简述计算机网络的作用", "answer": ["实现资源共享与通信"]}]
         self.assertEqual(cpc.check_duplicates([a, b], subj), [])
         self.assertEqual(cpc.check_leakage([a, b], subj), [])
+        self.assertEqual(cpc.check_clarity([
+            {"section": "四", "label": "四、1",
+             "stem": "1．训练图像较少时，分别说明数据增强和迁移学习/微调的基本做法与适用条件。"}
+        ]), [])
 
 
 if __name__ == "__main__":

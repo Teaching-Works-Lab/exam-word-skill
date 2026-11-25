@@ -91,7 +91,7 @@ Do not copy source exam PDFs, generated exams, student data, credentials, or QA 
 | Add `keep_next` to every question | Skip judgment questions without options (pitfalls §4.2) |
 | Deliver once `verify_docx.py` passes | Render PDF and run per-page split checks (pitfalls §5) |
 | Generate A and B from the same pool and eyeball for overlap | Run the A/B dedup gate: stems, option sets, answer sequence, subjective-answer similarity (pitfalls §8) |
-| Check only formatting and assume the questions are sound | Run `scripts/check_paper_content.py` for intra-paper duplication, front-to-back answer leakage, and unit coverage; a paper with objective answers that reproduce later rubric points is not deliverable (pitfalls §13) |
+| Check only formatting and assume the questions are sound | Run `scripts/check_paper_content.py` for intra-paper duplication, front-to-back answer leakage, undefined slogan-style stems, and unit coverage; a paper with objective answers that reproduce later rubric points or asks students to guess自造代称 is not deliverable (pitfalls §13) |
 | Hand-edit the generated DOCX | Change the spec/generator and rebuild |
 | Reuse the student-paper layout for a §10 teacher booklet | Teacher header, no 学号/姓名/score table (pitfalls §10.2); for an answer-keyed paper the student layout is required (pitfalls §11) |
 | Build an 答案卷 with the §10 teacher-header builder | Default to the answer-keyed paper from the student spec (§11.1); §10 booklet is an explicit opt-in |

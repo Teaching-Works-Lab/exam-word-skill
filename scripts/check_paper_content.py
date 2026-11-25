@@ -15,6 +15,7 @@
   2. 前后泄题：前面客观题的“题干 + 正确选项”与后面主观题的
      “题干 + 参考答案 + 评分要点”高度重合，等于先把答案说了。
   3. 覆盖缺口：blueprint 中每个单元的关键词是否在卷面/答案中出现。
+  4. 题干清晰性：主观题是否用未定义的口号式代称或指代要求考生说明/比较。
 
 输出 JSON / Markdown，含每条问题的证据与“怎么办”建议。
 """
@@ -53,6 +54,15 @@ STOP_TERMS = {
 
 SECTION_CN = {"一": "单选", "二": "多选", "三": "判断", "四": "简答", "五": "综合应用"}
 HEAD_RE = re.compile(r"^([一二三四五六])、")
+
+# 题干清晰性：抓住“自造口号式代称 + 要求解释/比较 + 未给定义”的命题缺陷。
+QUOTED_RE = re.compile(r"[“\"]([^”\"]{2,24})[”\"]")
+SLOGAN_VERB_RE = re.compile(r"(改造|借用|借助|利用|复用|提升|优化|强化|改善|扩充|处理)")
+GENERIC_NOUN_RE = re.compile(r"(样本|能力|特征|模型|数据|知识|方法|效果|资源|内容)")
+DEFINE_RE = re.compile(r"(即|是指|所谓|定义为|分别指|具体指|含义是|意思是|例如|比如|包括)")
+EXPLAIN_RE = re.compile(r"(说明|比较|分析|评价|简述|阐述|解释|指出|给出|为什么)")
+TWO_WAYS_RE = re.compile(r"两(?:个|条|种)(?:思路|做法|方法|方式|途径)")
+VAGUE_REF_RE = re.compile(r"(上述|前述|该做法|这种做法|此做法|这两(?:个|条|种)(?:思路|做法|方法|方式))")
 
 
 def norm(s: str) -> str:
@@ -328,13 +338,47 @@ def check_coverage(blueprint: dict | None, all_text: str) -> dict:
     }
 
 
+def is_slogan_label(text: str) -> bool:
+    """宽泛动词 + 宽泛名词构成的口号式代称，例如“借用已有能力”。"""
+    return bool(SLOGAN_VERB_RE.search(text) and GENERIC_NOUN_RE.search(text))
+
+
+def check_clarity(qs: list[dict]) -> list[dict]:
+    """主观题必须自包含：不能让考生猜题干里自造的口号或指代。"""
+    out: list[dict] = []
+    for q in qs:
+        if q.get("section") not in ("四", "五"):
+            continue
+        stem = q.get("stem", "")
+        slogans = [x for x in QUOTED_RE.findall(stem) if is_slogan_label(x)]
+        if slogans and EXPLAIN_RE.search(stem) and not DEFINE_RE.search(stem):
+            two_ways = bool(TWO_WAYS_RE.search(stem))
+            out.append(finding(
+                "题干不清", "error" if two_ways else "warning",
+                "用未定义的口号式代称要求说明/比较",
+                q.get("label", "?"), "—", 0.9 if two_ways else 0.6,
+                f"题干：{stem}｜未定义代称：{'、'.join(slogans)}",
+                "把引号里的代称改成标准术语，或在题干中先给出定义/例子；同时明确要求回答的维度。",
+            ))
+        vague = VAGUE_REF_RE.findall(stem)
+        if vague and not DEFINE_RE.search(stem):
+            out.append(finding(
+                "题干不清", "warning", "指代词缺少题干内先行词",
+                q.get("label", "?"), "—", 0.5,
+                f"题干：{stem}｜指代：{'、'.join(sorted(set(vague)))}",
+                "把“上述/该做法/这两条”等换成明确对象，或在同题内先说明它指什么。",
+            ))
+    return out
+
+
 def markdown_report(report: dict) -> str:
     lines = ["# 试卷内容质量门禁报告", ""]
     lines.append(f"- 结论：**{'通过' if report['passed'] else '未通过'}**")
     lines.append(f"- 卷内重复：{len(report['duplicates'])} 条；前后泄题：{len(report['leakage'])} 条")
+    lines.append(f"- 题干清晰性：{len(report['clarity'])} 条")
     lines.append(f"- 覆盖检查：{report['coverage']['status']}")
     lines += ["", "## 需要处理的问题", ""]
-    items = (report["duplicates"] + report["leakage"]
+    items = (report["duplicates"] + report["leakage"] + report["clarity"]
              + report["coverage"].get("findings", []))
     if not items:
         lines.append("无。")
@@ -389,6 +433,7 @@ def main(argv: list[str] | None = None) -> int:
 
     duplicates = check_duplicates(obj_claims, subj)
     leakage = check_leakage(obj_claims, subj)
+    clarity = check_clarity(qs)
     all_text = "\n".join(
         [b.get("text", "") for b in flatten_blocks(spec)]
         + [" ".join(b.get("items", [])) for b in flatten_blocks(spec)]
@@ -396,12 +441,13 @@ def main(argv: list[str] | None = None) -> int:
     blueprint = json.loads(args.blueprint.read_text(encoding="utf-8")) if args.blueprint else None
     coverage = check_coverage(blueprint, all_text)
 
-    errors = [f for f in duplicates + leakage + coverage.get("findings", [])
+    errors = [f for f in duplicates + leakage + clarity + coverage.get("findings", [])
               if f["severity"] == "error"]
     report = {
         "passed": not errors,
         "duplicates": duplicates,
         "leakage": leakage,
+        "clarity": clarity,
         "coverage": coverage,
         "thresholds": {
             "dup_stem_ratio": DUP_STEM_RATIO,
