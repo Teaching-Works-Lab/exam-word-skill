@@ -102,7 +102,7 @@ Do not copy source exam PDFs, generated exams, student data, credentials, or QA 
 | Render a code-heavy paper with `build_from_spec.py` | Use `scripts/build_code_exam.py` (pitfalls §9.5) |
 | Print internal unit IDs like `A9+A10` on the paper | Keep them in the teacher detail sheet only; number questions per section (pitfalls §9.1) |
 | Use fractional marks or put the score before the sentence | Integers only, suffix `（N 分）` at sentence end, sync the answer key (pitfalls §9.2) |
-| Paste incomplete code fragments, with borders or line numbers | Compilable full program, no border/line number, Consolas + 宋体 (pitfalls §9.3, §12.8); compile every 'run the code' block and compare output with the answer key |
+| Paste incomplete code fragments, with borders or line numbers | Compilable full program; professional code block = clean NO shade / NO border (teacher's final call), monospace 10pt, 13.5pt line spacing, inner-indent, Consolas + 宋体 (pitfalls §9.3 v5, §12.8); verify with `scripts/check_code_layout.py` (default `plain`); compile every 'run the code' block and compare output with the answer key |
 | Let an answer-key table autofit to its longest cell | Lock total width to the text column (pitfalls §10.4-5) |
 | Leave 「参考答案」/「评分要点」 as a bare label line at page bottom | Bind it to the first bullet with keep_with_next (pitfalls §10.4-4) |
 | Hard-code 18/6 question counts, `FULL_MARKS`, or 425/-142 indent in a verifier | Derive everything from the paper; regression-test on 3 structures (pitfalls §12.1, §12.5) |
@@ -136,6 +136,7 @@ python scripts/route_request.py "出一下答案"                     # -> answe
 python scripts/check_paper_content.py exam-spec.json objective.json answer.md --blueprint blueprint.json --md-out content-report.md  # §13: check report.source_alignment.verdict==pass BEFORE trusting leakage; fail-fast exit 2 on cross-course mismatch (§13.8)
 python scripts/verify_docx.py output.docx assets/reference.docx
 python scripts/check_code_completeness.py paper.md   # §12.8: run-the-code blocks must be full programs
+python scripts/check_code_layout.py output.docx --body-indent 283  # §9.3: code-block visual gate (plain=NO shade/border + monospace/size/indent/no-grid/no-line-number/pPr order); --style shaded for shaded variant; exit 1 on FAIL
 python scripts/unbold_substems.py paper.docx answer.docx  # §12.9: strip bold from (1)(2) sub-question stems, keep title/header bold
 ```
 

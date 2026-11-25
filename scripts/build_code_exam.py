@@ -11,7 +11,7 @@
 * ``keep_with_next`` 对表格无效，代码块会与其后的选项分家；
 * 「整题推页」会在页尾留下大片空白。
 
-本脚本的 v4 版面结构
+本脚本的 v5 版面结构
 --------------------
 每道大题一张无边框表格，**一道题一行**，行设 ``w:cantSplit``：
 
@@ -19,8 +19,19 @@
 * 行与行之间允许跨页 -> 不会因为某题放不下就在页尾留大片空白。
 
 表格 ``cellMar=0``、``tblInd=0``，单元格内段落缩进与正文一致：
-题干 283（悬挂）、代码/小问 425、选项 567。文档不能以表格结尾，
+题干 283（悬挂）、小问 425、选项 567、代码块 480。文档不能以表格结尾，
 末尾补一个 1pt 极小空段。
+
+代码块视觉规范 v5（专业可移植，见 references §9.3）
+------------------------------------------------
+代码块**不是散落的小字**，而是排版考究的独立区块：
+* 字号 10pt、固定行距 13.5pt、段前 4pt / 段后 5pt，比正文略紧但呼吸舒适；
+* 代码块整体左缩进 480 twips，比正文/小问再内收一层，建立区块感；
+* ascii/hAnsi/cs = Consolas、eastAsia = 宋体，等宽对齐；
+* 仍用单段 + ``w:br`` 软换行 + ``keepLines``，不拆行、不跨页；
+* **视觉边界默认关闭**（教师 2026-11-24 定稿：不要底纹/竖线，保持卷面干净）；
+  需要时把 ``CODE_FRAME`` 设为 ``"shaded"`` 即启用浅灰底纹 + 左灰竖线；
+* 所有参数集中在文件头常量区，换课程/换字体只改一处。
 
 spec 契约
 ---------
@@ -63,13 +74,29 @@ DEFAULT_TEMPLATE = SKILL / "assets/reference.docx"
 
 # 版面常量（twips / pt）
 Q_LEFT = 283          # 题干正文缩进（悬挂：题号顶格）
-BODY_LEFT = 425       # 小问 / 代码基准缩进
+BODY_LEFT = 425       # 小问基准缩进
 OPT_LEFT = 567        # 选项再内收
-CODE_SIZE = 9.5       # 代码字号
-CODE_LINE = 12.5      # 代码固定行距
 TEXT_LINE = 20        # 正文行距
 OPT_SIZE = 11         # 选项字号
 UNIT_GAP = 6          # 题与题之间的间距
+
+# —— 代码块专业排版参数（v5，跨课程复用只改这里）——
+CODE_FRAME = "plain"  # 视觉边界：plain=无底纹无竖线（默认，卷面干净）；shaded=浅灰底纹+左灰竖线
+CODE_LEFT = 480       # 代码块整体左缩进（比正文/小问再内收，建立区块感）
+CODE_SIZE = 10.0      # 代码字号（与正文 11pt 协调，不再像脚注）
+CODE_LINE = 13.5      # 代码固定行距（留呼吸感）
+CODE_BEFORE = 4       # 代码块段前
+CODE_AFTER = 5        # 代码块段后
+CODE_SHADE = "F5F5F5" # 代码块浅灰底纹
+CODE_BAR = "A6A6A6"   # 代码块左侧竖线颜色（中灰，非黑框）
+CODE_BAR_SZ = "12"    # 左侧竖线粗细：1/8 pt 单位，12 = 1.5pt
+CODE_BAR_GAP = "6"    # 竖线与代码文字间距（pt）
+
+# pPr 子元素必须按 OOXML schema 顺序插入，否则 Word 可能报"需要修复"
+_PPR_AFTER_BDR = ("w:shd", "w:tabs", "w:spacing", "w:ind",
+                  "w:contextualSpacing", "w:jc", "w:rPr", "w:sectPr")
+_PPR_AFTER_SHD = ("w:tabs", "w:spacing", "w:ind",
+                  "w:contextualSpacing", "w:jc", "w:rPr", "w:sectPr")
 
 
 def _add_keep_lines(p):
@@ -129,6 +156,34 @@ def _set_code_font(run, size):
     rFonts.set(qn("w:eastAsia"), "宋体")
 
 
+def _add_code_frame(p):
+    """代码块视觉边界（可选）：仅 ``CODE_FRAME='shaded'`` 时加浅灰底纹 + 左灰竖线。
+
+    教师定稿默认 ``plain``：不加任何底纹/边线，靠字号、行距、内缩建立专业感，
+    避免底纹压制正文、laser 打印糊成一片。
+    用 ``insert_element_before`` 保证 OOXML pPr 子元素顺序合法；直接 append
+    会把 ``w:pBdr`` / ``w:shd`` 放到 ``w:spacing`` 之后，触发 Word 修复提示。
+    """
+    if CODE_FRAME != "shaded":
+        return
+    pPr = p._p.get_or_add_pPr()
+    if pPr.find(qn("w:pBdr")) is None:
+        bdr = OxmlElement("w:pBdr")
+        left = OxmlElement("w:left")
+        left.set(qn("w:val"), "single")
+        left.set(qn("w:sz"), CODE_BAR_SZ)
+        left.set(qn("w:space"), CODE_BAR_GAP)
+        left.set(qn("w:color"), CODE_BAR)
+        bdr.append(left)
+        pPr.insert_element_before(bdr, *_PPR_AFTER_BDR)
+    if pPr.find(qn("w:shd")) is None:
+        shd = OxmlElement("w:shd")
+        shd.set(qn("w:val"), "clear")
+        shd.set(qn("w:color"), "auto")
+        shd.set(qn("w:fill"), CODE_SHADE)
+        pPr.insert_element_before(shd, *_PPR_AFTER_SHD)
+
+
 def _body_width(doc):
     sec = doc.sections[0]
     return sec.page_width.twips - sec.left_margin.twips - sec.right_margin.twips
@@ -181,8 +236,9 @@ def _render_unit(cell, blocks):
                        after=block.get("after_pt", 0),
                        bold=block.get("bold", False))
         elif kind == "code":
-            p = _cell_para(cell, first, "", left=BODY_LEFT, before=3,
-                           after=4, line=CODE_LINE)
+            p = _cell_para(cell, first, "", left=CODE_LEFT,
+                           before=CODE_BEFORE, after=CODE_AFTER, line=CODE_LINE)
+            _add_code_frame(p)
             lines = block["lines"]
             for i, line in enumerate(lines):
                 run = p.add_run(line if line else " ")
