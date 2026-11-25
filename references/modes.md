@@ -22,17 +22,20 @@ Inputs: two Word files. First complete `compare`, then use the identified standa
 
 ## `answer-keyed-paper` (default answer output)
 
-Inputs: the student-paper spec (`exam-spec-*.json`), the same-source objective-answer JSON, and the answer Markdown. **No attached file is required to route here** — any request mentioning 答案 / 参考答案 / 标准答案 / 评分标准 lands on this mode. See `references/exam-authoring-pitfalls.md` §11.
+Inputs: either (a) the student-paper spec (`exam-spec-*.json`), same-source objective-answer JSON and answer Markdown; or (b) a **finalized student-paper DOCX** plus an `answers.json` derived from the answer Markdown. **No attached file is required to route here** — any request mentioning 答案 / 参考答案 / 标准答案 / 评分标准 lands on this mode. See `references/exam-authoring-pitfalls.md` §11 and §12.
 
 Run:
 
 ```text
+# spec path
 python scripts/build_answer_keyed_paper.py exam-spec-B.json objective.json answer.md answer-keyed.docx --spec-out keyed-spec.json
+# finalized-DOCX path (no spec / no spacer blocks)
+python scripts/derive_answer_keyed_from_docx.py student-final.docx answers.json answer-keyed.docx
 python scripts/verify_answer_keyed_paper.py answer-keyed.docx
 python scripts/verify_docx.py answer-keyed.docx assets/reference.docx
 ```
 
-Output: one new DOCX beside the student paper; never overwrite the source. Gates: 11 content checks from `verify_answer_keyed_paper.py` (answer label, student header, blank score table, 18 filled objective brackets, 6 uniform rubric labels, mark format and per-question sums, no answer space, sub-question indent, no hard page break, no AI marks) + template fidelity + PDF per-page review. If a subjective rubric cannot be parsed into integer marks, pass `--marks-json` rather than hand-editing the DOCX.
+Output: one new DOCX beside the student paper; never overwrite the source. Gates: the content checks from `verify_answer_keyed_paper.py` (answer label, student header, blank score table, **every** objective bracket filled, **one** uniform rubric label per subjective question, mark format and per-question sums, label bound to first bullet, label not misplaced after a chapter heading, no answer space, consistent sub-question indent, no hard page break, no AI marks). Counts, section names, mark values and indent are **derived from the paper** (pitfalls §12.1–12.2); never assume 18 objective / 6 subjective. If a subjective rubric cannot be parsed into integer marks, pass `--marks-json` rather than hand-editing the DOCX. A script change is only trusted after the three-structure regression in pitfalls §12.5.
 
 ## `answer-booklet` (explicit opt-in)
 

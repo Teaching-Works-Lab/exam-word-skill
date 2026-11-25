@@ -52,7 +52,10 @@ When the user asks to **author** a paper (出题 / 组卷 / 生成试卷 / 出�
 3. Keep one structured JSON as the single content source. Generate the spec, the detail sheet, and the separate answer key from one generator script so they cannot drift; never hand-edit the DOCX.
 4. Apply the gates in `references/exam-authoring-pitfalls.md` §5 (verify → content checks → PDF render → per-page split detection → PNG visual review) before delivery. `verify_docx.py` passing is necessary but **not sufficient**.
 5. For the **answer key**, the default is the answer-keyed paper (§11) — "答案 / 参考答案 / 标准答案 / 评分标准" all produce it:
-   - **Default: answer-keyed paper** → read pitfalls §11 and run `scripts/build_answer_keyed_paper.py <paper-spec.json> <objective.json> <answer.md> <out.docx> [--spec-out keyed-spec.json]`. It derives from the student-paper spec, keeps the 学号/姓名 column and blank score table, fills objective answers into the existing brackets, and replaces answer space with one uniform `参考答案与评分要点：` label plus scored points. Then run `scripts/verify_answer_keyed_paper.py <out.docx>` and `scripts/verify_docx.py <out.docx> assets/reference.docx`, render to PDF, and review every page for orphan pages/labels.
+   - **Default: answer-keyed paper** → read pitfalls §11 and §12, then choose the derivation path by what you have:
+     - Structured student-paper spec available → `scripts/build_answer_keyed_paper.py <paper-spec.json> <objective.json> <answer.md> <out.docx> [--spec-out keyed-spec.json]`.
+     - Only a **finalized student-paper DOCX** plus answers (no spec/spacer) → `scripts/derive_answer_keyed_from_docx.py <student.docx> <answers.json> <out.docx>` (pitfalls §12.4). Parse the answer Markdown into `answers.json`; never hand-code per-course question data into the script. Both paths keep the 学号/姓名 column and blank score table, fill objective answers into the existing brackets, and replace answer space with one uniform `参考答案与评分要点：` label plus scored points.
+   - Then run `scripts/verify_answer_keyed_paper.py <out.docx>` and `scripts/verify_docx.py <out.docx> assets/reference.docx`, render to PDF, and review every page for orphan pages/labels. The verifier is structure-agnostic (pitfalls §12.1–12.2) and must pass on **three different paper structures** before a script change is trusted (§12.5).
    - **Explicit teacher booklet only** (教师用 / 答案册 / 评分细则 / 答案速查 / 对照表) → read pitfalls §10 and build with `scripts/build_answer_docx.py`: four-line teacher header, no 学号/姓名/score table, unbreakable code blocks and table rows.
    Never decide by the filename alone, and never use `build_answer_docx.py` for the default answer output.
 
@@ -100,6 +103,10 @@ Do not copy source exam PDFs, generated exams, student data, credentials, or QA 
 | Paste incomplete code fragments, with borders or line numbers | Compilable full program, no border/line number, Consolas + 宋体 (pitfalls §9.3) |
 | Let an answer-key table autofit to its longest cell | Lock total width to the text column (pitfalls §10.4-5) |
 | Leave 「参考答案」/「评分要点」 as a bare label line at page bottom | Bind it to the first bullet with keep_with_next (pitfalls §10.4-4) |
+| Hard-code 18/6 question counts, `FULL_MARKS`, or 425/-142 indent in a verifier | Derive everything from the paper; regression-test on 3 structures (pitfalls §12.1, §12.5) |
+| Insert an answer block right after the stem or after a chapter heading | Insert after the question's last element, stopping at `^[一二三四五六]、` (pitfalls §12.3) |
+| Hand-code one course's answers into a "generic" derivation script | Externalize answers to JSON; let array lengths drive question counts (pitfalls §12.4) |
+| Rebuild a finalized student-paper DOCX from spec just to add answers | Derive in DOCX body and restore the 7 template parts (pitfalls §12.4) |
 
 If the first action is not the router, the template is re-derived, or a source copy is retained, stop and return to this workflow.
 
@@ -118,6 +125,7 @@ python scripts/build_from_spec.py assets/reference.docx exam.json output.docx
 python scripts/build_code_exam.py exam.json output.docx          # code-heavy papers (pitfalls §9)
 python scripts/build_answer_docx.py answer.json answer.docx     # explicit teacher booklet (pitfalls §10)
 python scripts/build_answer_keyed_paper.py exam-spec-A.json objective.json answer.md answer-keyed.docx --spec-out keyed-spec.json
+python scripts/derive_answer_keyed_from_docx.py student-final.docx answers.json answer-keyed.docx  # finalized DOCX path (§12.4)
 python scripts/verify_answer_keyed_paper.py answer-keyed.docx
 python scripts/route_request.py "出一下答案"                     # -> answer-keyed-paper (no attachment needed)
 python scripts/verify_docx.py output.docx assets/reference.docx
