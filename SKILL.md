@@ -47,7 +47,7 @@ Read `references/modes.md` for mode-specific inputs and outputs. Read `reference
 
 When the user asks to **author** a paper (出题 / 组卷 / 生成试卷 / 出一份试卷明细) instead of converting or comparing attached files, the `compare`/`normalize` router modes do not apply. Use this sequence:
 
-1. Read `references/exam-authoring-pitfalls.md` in full before touching the builder. It is the authoritative checklist for content sourcing, score-table blanking, sub-question splitting, pagination guards, and render acceptance; every rule there came from a real rework. For **code-heavy papers** (程序阅读 / 查错与测试 / 含多行代码的试卷), §9 is mandatory: build with `scripts/build_code_exam.py` instead of `build_from_spec.py`, which has no `code` block and cannot keep a code block on the same page as its options.
+1. Read `references/exam-authoring-pitfalls.md` in full before touching the builder. It is the authoritative checklist for content sourcing, score-table blanking, sub-question splitting, pagination guards, and render acceptance; every rule there came from a real rework. For **code-heavy papers** (程序阅读 / 查错与测试 / 含多行代码的试卷), §9 and §12.8 are mandatory: build with `scripts/build_code_exam.py` instead of `build_from_spec.py`, which has no `code` block and cannot keep a code block on the same page as its options.
 2. Produce a **paper-detail alignment draft** first (依据材料 / 题库盘点 / 卷面结构 / 逐题明细 / 单元与课程目标覆盖 / 待确认事项). Do not build or deliver the final DOCX until the user confirms the exam type, section structure, score split, and paper count (A only or A/B).
 3. Keep one structured JSON as the single content source. Generate the spec, the detail sheet, and the separate answer key from one generator script so they cannot drift; never hand-edit the DOCX.
 4. Apply the gates in `references/exam-authoring-pitfalls.md` §5 (verify → content checks → PDF render → per-page split detection → PNG visual review) before delivery. `verify_docx.py` passing is necessary but **not sufficient**.
@@ -100,7 +100,7 @@ Do not copy source exam PDFs, generated exams, student data, credentials, or QA 
 | Render a code-heavy paper with `build_from_spec.py` | Use `scripts/build_code_exam.py` (pitfalls §9.5) |
 | Print internal unit IDs like `A9+A10` on the paper | Keep them in the teacher detail sheet only; number questions per section (pitfalls §9.1) |
 | Use fractional marks or put the score before the sentence | Integers only, suffix `（N 分）` at sentence end, sync the answer key (pitfalls §9.2) |
-| Paste incomplete code fragments, with borders or line numbers | Compilable full program, no border/line number, Consolas + 宋体 (pitfalls §9.3) |
+| Paste incomplete code fragments, with borders or line numbers | Compilable full program, no border/line number, Consolas + 宋体 (pitfalls §9.3, §12.8); compile every 'run the code' block and compare output with the answer key |
 | Let an answer-key table autofit to its longest cell | Lock total width to the text column (pitfalls §10.4-5) |
 | Leave 「参考答案」/「评分要点」 as a bare label line at page bottom | Bind it to the first bullet with keep_with_next (pitfalls §10.4-4) |
 | Hard-code 18/6 question counts, `FULL_MARKS`, or 425/-142 indent in a verifier | Derive everything from the paper; regression-test on 3 structures (pitfalls §12.1, §12.5) |
@@ -122,13 +122,14 @@ Use the Python executable returned by the workspace dependency loader.
 python scripts/route_request.py "对比这两个 Word" standard.docx exam.docx
 python scripts/compare_docx.py standard.docx exam.docx --json-output diff.json --markdown-output diff.md
 python scripts/build_from_spec.py assets/reference.docx exam.json output.docx
-python scripts/build_code_exam.py exam.json output.docx          # code-heavy papers (pitfalls §9)
+python scripts/build_code_exam.py exam.json output.docx          # code-heavy papers (pitfalls §9, §12.8)
 python scripts/build_answer_docx.py answer.json answer.docx     # explicit teacher booklet (pitfalls §10)
 python scripts/build_answer_keyed_paper.py exam-spec-A.json objective.json answer.md answer-keyed.docx --spec-out keyed-spec.json
 python scripts/derive_answer_keyed_from_docx.py student-final.docx answers.json answer-keyed.docx  # finalized DOCX path (§12.4)
 python scripts/verify_answer_keyed_paper.py answer-keyed.docx
 python scripts/route_request.py "出一下答案"                     # -> answer-keyed-paper (no attachment needed)
 python scripts/verify_docx.py output.docx assets/reference.docx
+python scripts/check_code_completeness.py paper.md   # §12.8: run-the-code blocks must be full programs
 ```
 
 For authored papers, PDF rendering plus per-page split detection is mandatory; see `references/exam-authoring-pitfalls.md` §5. Code-heavy papers additionally follow §9 and build with `scripts/build_code_exam.py`. Every layout fix belongs in the spec/generator, never in the DOCX.
