@@ -55,6 +55,8 @@ TRUE_FALSE = {
 }
 BRACKET_RE = re.compile(r"([（(])\s*([)）])")
 SUBJ_HEAD = re.compile(r"^[四五]、")
+# 主观题「主问题」：章标题下的题号行（全角/半角题号均可），区别于小问（1）（2）
+MAINQ_RE = re.compile(r"^\d+\s*[．.、]")
 NORM_RE = re.compile(r"[\s，。、（）()：:；;「」『』【】\[\],.?？!！]")
 
 
@@ -131,7 +133,12 @@ def parse_marks(rubric, n_points, full, where):
 
 
 def format_point(text, mark):
-    """把分值挂到要点名之后，全卷统一 `（N 分）`。"""
+    """把分值挂到要点名之后，全卷统一 `（N 分）`。
+
+    先归一化正文里已有的紧凑分值写法（`2分`/`(2分)`/`（2 分）` 之外的变体），
+    避免同一份答案卷里出现 `（2分）` 与 `（2 分）` 混排（§11.5）。
+    """
+    text = re.sub(r"[（(]\s*(\d+)\s*分\s*[）)]", "", text).strip()
     label = f"（{mark} 分）"
     m = re.match(r"^(【[^】]+】)", text)
     if m:
@@ -140,6 +147,45 @@ def format_point(text, mark):
     if m:
         return text[:m.end()] + label + text[m.end():]
     return label + text
+
+
+def ensure_subjective_spacers(blocks, expected):
+    """主观题答题空白不足时，在每道主问题末尾自动补 spacer。
+
+    返回 ``(new_blocks, added)``。主问题 = 主观题章（四/五/六）内的题号
+    question 行；每道主问题的「答题空白」= 其后到下一主问题/章标题之间的
+    spacer。已有 spacer 的题不重复补。这样学生卷 spec 漏写答题空白时，
+    不必手工派生 spec（§11 易用性增强）。
+    """
+    have = sum(1 for b in blocks if b["type"] == "spacer")
+    if have >= expected:
+        return list(blocks), 0
+    marks = [i for i, b in enumerate(blocks)
+             if b["type"] == "heading" and SUBJ_HEAD.match(b.get("text", ""))]
+    if not marks:
+        return list(blocks), 0
+    start = min(marks)
+    main, in_subj = [], False
+    for i in range(start, len(blocks)):
+        b = blocks[i]
+        if b["type"] == "heading":
+            in_subj = bool(SUBJ_HEAD.match(b.get("text", "")))
+            continue
+        if in_subj and b["type"] == "question" and MAINQ_RE.match(b.get("text", "")):
+            main.append(i)
+    insert_at = []
+    for j, ms in enumerate(main):
+        end = main[j + 1] if j + 1 < len(main) else len(blocks)
+        for k in range(ms + 1, end):
+            if blocks[k]["type"] == "heading":
+                end = k
+                break
+        if not any(blocks[k]["type"] == "spacer" for k in range(ms, end)):
+            insert_at.append(end)
+    out = list(blocks)
+    for pos in sorted(set(insert_at), reverse=True):
+        out.insert(pos, {"type": "spacer", "text": "", "after_pt": 8})
+    return out, len(insert_at)
 
 
 def fill_bracket(stem, ans, where):
@@ -177,6 +223,9 @@ def build_keyed_spec(paper_path, objective_path, answer_md_path,
     meta["doc_type"] = "answer-keyed"
 
     blocks = [dict(b) for page in paper["pages"] for b in page["blocks"]]
+
+    # 0) 答题空白自动补齐：spacer 数少于主观题数时，在每道主问题末尾补
+    blocks, spacers_added = ensure_subjective_spacers(blocks, len(subj))
 
     # 1) 客观题：按 objective 顺序把答案填进题干原有空括号
     obj_iter = iter(objective)
@@ -241,6 +290,7 @@ def build_keyed_spec(paper_path, objective_path, answer_md_path,
                                                  f"{s['kind']}{s['n']}")),
                         "full": s["score"]} for s in subj],
         "blocks": len(out),
+        "spacers_added": spacers_added,
         "hard_page_breaks": 0,
     }
     return spec, stats

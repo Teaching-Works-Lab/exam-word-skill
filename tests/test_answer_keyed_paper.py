@@ -223,9 +223,138 @@ class BuildTests(unittest.TestCase):
                               [3, 3, 2, 2], [4, 4, 4, 3], [4, 4, 4, 3]])
             report = vak.run(out)
             self.assertTrue(report["valid"], report["errors"])
-            self.assertEqual(len(report["checks"]), 11)
+            # 门禁项随结构性修复扩展（11 → 15+），断言关键项在且全绿，不写死数量
+            for key in ("answer_label", "student_header", "score_table_blank",
+                        "objective_answers", "rubric_labels", "mark_sum",
+                        "no_answer_space", "no_hard_page_break", "no_ai_marks"):
+                self.assertIn(key, report["checks"])
+                self.assertTrue(report["checks"][key]["ok"], key)
             fidelity = verify_docx.verify_document(out, TEMPLATE)
             self.assertTrue(fidelity["valid"], fidelity["errors"])
+
+
+FULLWIDTH_SPEC = {
+    "metadata": {
+        "school": "测试学院", "academic_term": "2026－2027学年第一学期",
+        "unit": "机械学院", "teacher": "命题教师", "course": "人工智能技术及应用",
+        "paper": "A 卷", "exam_mode": "闭卷",
+        "summary": "本试卷共有四道大题（满分：100 分）",
+    },
+    "score_table": [
+        ["题号", "一", "三", "四", "五", "", "总分"],
+        ["分数", "", "", "", "", "", ""],
+        ["得分", "", "", "", "", "", ""],
+    ],
+    "pages": [
+        {"blocks": [
+            {"type": "heading", "text": "一、单项选择题（共 1 小题，每小题 1 分，共 1 分）"},
+            {"type": "question", "text": "1．图灵测试主要用于判断（　）。"},
+            {"type": "option", "text": "A. 运算速度"},
+            {"type": "option", "text": "B. 智能行为"},
+            {"type": "heading", "text": "三、判断题（共 1 小题，每小题 1 分，共 1 分）"},
+            {"type": "question", "text": "2．模型输出无需人工核实。（　）"},
+        ]},
+        {"blocks": [
+            {"type": "heading", "text": "四、简答题（共 1 小题，每小题 6 分，共 6 分）"},
+            {"type": "question", "text": "1．简述三大流派。"},
+            {"type": "spacer", "text": "", "after_pt": 5},
+            # 故意漏掉应用题的答题空白，验证生成器自动补齐
+            {"type": "heading", "text": "五、应用题（共 1 小题，每小题 10 分，共 10 分）"},
+            {"type": "question", "text": "1．写一条提示词。"},
+        ]},
+    ],
+}
+FULLWIDTH_OBJECTIVE = [
+    {"type": "单选题", "stem": "1．图灵测试主要用于判断（　）。", "answer": "B"},
+    {"type": "判断题", "stem": "2．模型输出无需人工核实。（　）", "answer": "错误"},
+]
+FULLWIDTH_MD = """# 测试卷 · 参考答案与评分标准
+
+## 一、客观题答案速查
+
+### 单选题
+
+| 题号 | 答案 |
+|---|---|
+| 1 | B |
+
+### 多选题
+
+| 题号 | 答案 |
+|---|---|
+
+### 判断题
+
+| 题号 | 答案 |
+|---|---|
+| 1 | × |
+
+## 二、主观题参考答案与评分要点
+
+### 四、简答题（共 1 题，每题 6 分）
+
+#### 第 1 题（U1，6 分）
+
+**参考答案**
+
+【要点一】符号主义与连接主义。
+要点二（2分）行为主义。
+
+**评分要点**
+
+（1）3 分：两种流派。
+（2）3 分：行为主义。
+
+### 五、综合应用题（共 1 题，每题 10 分）
+
+#### 第 1 题（U1，10 分）
+
+**参考答案**
+
+【角色设定】明确教师角色。
+【校验要求】标注待核。
+
+**评分要点**
+
+（1）4 分：角色设定。
+（2）6 分：校验要求。
+"""
+
+
+class PaperTypeAdaptationTests(unittest.TestCase):
+    """异卷型（全角题号 / 25+9 / 每题分值不同）不得触发门禁误报。"""
+
+    def test_fullwidth_numbering_and_missing_spacer(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            t = Path(tmp)
+            (t / "spec.json").write_text(
+                json.dumps(FULLWIDTH_SPEC, ensure_ascii=False), encoding="utf-8")
+            (t / "objective.json").write_text(
+                json.dumps(FULLWIDTH_OBJECTIVE, ensure_ascii=False), encoding="utf-8")
+            (t / "answer.md").write_text(FULLWIDTH_MD, encoding="utf-8")
+
+            spec, stats = bkp.build_keyed_spec(
+                t / "spec.json", t / "objective.json", t / "answer.md")
+            self.assertEqual(stats["objective_filled"], 2)
+            self.assertEqual(stats["spacers_added"], 1)
+            blocks = spec["pages"][0]["blocks"]
+            self.assertFalse(any(b["type"] == "spacer" for b in blocks))
+            self.assertFalse(any("（2分）" in b.get("text", "") for b in blocks))
+            self.assertIn("（B）", blocks[1]["text"])
+
+            (t / "keyed.json").write_text(
+                json.dumps(spec, ensure_ascii=False), encoding="utf-8")
+            out = t / "keyed.docx"
+            bfs.build_document(TEMPLATE, t / "keyed.json", out)
+            report = vak.run(out, t / "keyed.json")
+            self.assertTrue(report["valid"], report["errors"])
+            for key in ("answer_label", "objective_answers", "rubric_labels",
+                        "mark_format", "mark_sum", "no_answer_space"):
+                self.assertIn(key, report["checks"])
+                self.assertTrue(report["checks"][key]["ok"], key)
+            self.assertEqual(report["objective_count"], 2)
+            self.assertEqual(report["subjective_count"], 2)
+            self.assertTrue(verify_docx.verify_document(out, TEMPLATE)["valid"])
 
 
 if __name__ == "__main__":
