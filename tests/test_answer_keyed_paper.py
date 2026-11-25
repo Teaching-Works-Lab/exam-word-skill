@@ -357,5 +357,57 @@ class PaperTypeAdaptationTests(unittest.TestCase):
             self.assertTrue(verify_docx.verify_document(out, TEMPLATE)["valid"])
 
 
+class GateRobustnessTests(unittest.TestCase):
+    """人工修订态误判防线（2026-11-24 A 卷手改版实战）。
+
+    手改版把分值写在标签后 / 句中，并用裸标签「参考答案」而非统一标签。
+    门禁若只认行首分值、只用统一标签分类，会把 6 道主观题全当客观题，
+    误报「未填答」与「分值合计 0」。
+    """
+
+    def test_mark_of_accepts_flexible_prefix(self):
+        cases = {
+            "（3 分）正文": 3,
+            "【区别】（3分）正文": 3,
+            "①知识库（2 分）：正文": 2,
+            "（1）链路（4分）：正文": 4,
+            "表述合理（1分）": 1,
+            "类别不平衡时高准确率可由多数类主导，故障类可能全被漏判（4分）；": 4,
+        }
+        for text, expected in cases.items():
+            with self.subTest(text=text):
+                self.assertEqual(vak.mark_of(text), expected)
+
+    def test_bare_label_still_classifies_subjective(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            t = Path(tmp)
+            (t / "spec.json").write_text(
+                json.dumps(FULLWIDTH_SPEC, ensure_ascii=False), encoding="utf-8")
+            (t / "objective.json").write_text(
+                json.dumps(FULLWIDTH_OBJECTIVE, ensure_ascii=False), encoding="utf-8")
+            (t / "answer.md").write_text(FULLWIDTH_MD, encoding="utf-8")
+            spec, _ = bkp.build_keyed_spec(
+                t / "spec.json", t / "objective.json", t / "answer.md")
+            # 模拟人工修订：统一标签改成裸标签
+            for page in spec["pages"]:
+                for b in page["blocks"]:
+                    if b.get("text") == vak.RUBRIC_LABEL:
+                        b["text"] = "参考答案"
+            (t / "keyed.json").write_text(
+                json.dumps(spec, ensure_ascii=False), encoding="utf-8")
+            out = t / "keyed.docx"
+            bfs.build_document(TEMPLATE, t / "keyed.json", out)
+            report = vak.run(out, t / "keyed.json")
+            # 裸标签也要能把主观题分出来，否则 objective_answers 会误报未填答
+            self.assertTrue(report["checks"]["objective_answers"]["ok"],
+                            report["checks"]["objective_answers"]["detail"])
+            self.assertEqual(report["subjective_count"], 2)
+            # 标签不统一仍要如实报错
+            self.assertFalse(report["checks"]["rubric_labels"]["ok"])
+            # 分值合计不受标签写法影响
+            self.assertTrue(report["checks"]["mark_sum"]["ok"],
+                            report["checks"]["mark_sum"]["detail"])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -66,16 +66,16 @@ def body_items(doc):
 
 
 def mark_of(text):
-    """从一条要点文本中取分值；兼容四种卷面写法，取不到返回 None。"""
-    t = text.strip()
-    m = ANY_MARK.search(t)
-    if not m:
-        return None
-    prefix = t[:m.start()]
-    # （N 分）正文 / 【标题】（N 分）正文 / （1）（N 分）正文
-    if prefix == "" or prefix.startswith("【") or re.fullmatch(r"（\d+）", prefix):
-        return int(m.group(1))
-    return None
+    """从一条要点文本中取分值；兼容生成态与人工修订态，取不到返回 None。
+
+    生成态是行首 `（N 分）`；人工修订态位置自由：`【标题】（N 分）`、
+    `①标签（N 分）：`、`（1）链路（4分）：`、`表述合理（1分）`，甚至分值
+    落在长句末尾。调用方只在答案区内逐段取分值，不会碰到题干满分，因此
+    这里一律取段内第一个 `（N 分）`，避免把合法手改误判成缺分值。
+    写法是否规范由 mark_format 单独判，不在此处放宽。
+    """
+    m = ANY_MARK.search(text.strip())
+    return int(m.group(1)) if m else None
 
 
 def docprops_text(path):
@@ -160,8 +160,11 @@ def run(path, spec_path=None):
     # 表格版式（一大题一表）里一个表格含多道主观题，按该范围内的标签数展开
     objective, subjective = [], []
     for kind, s, e, stem in questions:
+        # 人工修订态可能用裸标签（答案：/ 参考答案），也须识别为主观题，
+        # 否则会把主观题当客观题、误报「未填答」。标签是否统一由 rubric_labels 单独判。
         label_idxs = [k for k in range(s, e)
-                      if items[k][0] in ("p", "cell-p") and items[k][2].strip() == RUBRIC_LABEL]
+                      if items[k][0] in ("p", "cell-p") and
+                      (items[k][2].strip() == RUBRIC_LABEL or BARE_LABELS.match(items[k][2].strip()))]
         if not label_idxs:
             objective.append((stem, s, e))
         else:

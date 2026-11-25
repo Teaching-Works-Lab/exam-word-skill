@@ -127,6 +127,8 @@ python scripts/build_from_spec.py assets/reference.docx exam.json output.docx
 python scripts/build_code_exam.py exam.json output.docx          # code-heavy papers (pitfalls §9, §12.8)
 python scripts/build_answer_docx.py answer.json answer.docx     # explicit teacher booklet (pitfalls §10)
 python scripts/build_answer_keyed_paper.py exam-spec-A.json objective.json answer.md answer-keyed.docx --spec-out keyed-spec.json
+# 评分要点是自然语言（非「(1) N 分」结构）时，显式给定分值向量（pitfalls §12.11）
+python scripts/build_answer_keyed_paper.py exam-spec-A.json objective.json answer.md answer-keyed.docx --marks-json marks.json
 python scripts/derive_answer_keyed_from_docx.py student-final.docx answers.json answer-keyed.docx  # finalized DOCX path (§12.4)
 python scripts/verify_answer_keyed_paper.py answer-keyed.docx
 python scripts/route_request.py "出一下答案"                     # -> answer-keyed-paper (no attachment needed)
