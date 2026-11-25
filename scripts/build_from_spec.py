@@ -104,6 +104,8 @@ def _add_header(document, metadata):
     first.bold = True
     course.add_run("\t")
     course.add_run(f"（{metadata.get('paper', 'A 卷')}）")
+    if metadata.get("answer_label"):
+        course.add_run(metadata["answer_label"])
     course.add_run("\t")
     last = course.add_run(f"【{metadata.get('exam_mode', '闭卷')}】")
     last.bold = True

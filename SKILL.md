@@ -24,6 +24,10 @@ After routing, use `documents:documents` for DOCX creation, editing, rendering, 
 | `normalize` | One Word plus 改格式/修正/套用/统一/标准化 | New corrected DOCX |
 | `pdf-to-word` | PDF plus 转换/可编辑/套模板 | New editable DOCX |
 | `compare-and-fix` | Two Word files plus comparison and correction intent | Report and new corrected DOCX |
+| `answer-keyed-paper` | **Any request mentioning 答案 / 参考答案 / 标准答案 / 评分标准** (default answer output) | New answer-keyed DOCX derived from the student-paper spec |
+| `answer-booklet` | Explicit 教师用 / 答案册 / 评分细则 / 答案速查 / 对照表 | New teacher answer-booklet DOCX |
+
+**Default answer output**: from 2026-11-24, "答案" alone means the **卷面标注答案卷** (pitfalls §11) — the full student paper with answers filled into the objective brackets and rubric blocks replacing the answer space. The separate teacher booklet (§10) is now an explicit opt-in, not the default. `route_request.py` accepts an answer request with **no attached file**; do not ask the user to supply one.
 
 When intent remains ambiguous, choose `inspect`. Never overwrite an input.
 
@@ -47,7 +51,10 @@ When the user asks to **author** a paper (出题 / 组卷 / 生成试卷 / 出�
 2. Produce a **paper-detail alignment draft** first (依据材料 / 题库盘点 / 卷面结构 / 逐题明细 / 单元与课程目标覆盖 / 待确认事项). Do not build or deliver the final DOCX until the user confirms the exam type, section structure, score split, and paper count (A only or A/B).
 3. Keep one structured JSON as the single content source. Generate the spec, the detail sheet, and the separate answer key from one generator script so they cannot drift; never hand-edit the DOCX.
 4. Apply the gates in `references/exam-authoring-pitfalls.md` §5 (verify → content checks → PDF render → per-page split detection → PNG visual review) before delivery. `verify_docx.py` passing is necessary but **not sufficient**.
-5. For the **answer key** (参考答案与评分细则 / 客观题答案速查 / A/B 卷答案对照), read pitfalls §10 and build with `scripts/build_answer_docx.py`. It uses a teacher header (no 学号/姓名/得分表) and keeps code blocks and table rows unbreakable; never reuse the student-paper layout.
+5. For the **answer key**, the default is the answer-keyed paper (§11) — "答案 / 参考答案 / 标准答案 / 评分标准" all produce it:
+   - **Default: answer-keyed paper** → read pitfalls §11 and run `scripts/build_answer_keyed_paper.py <paper-spec.json> <objective.json> <answer.md> <out.docx> [--spec-out keyed-spec.json]`. It derives from the student-paper spec, keeps the 学号/姓名 column and blank score table, fills objective answers into the existing brackets, and replaces answer space with one uniform `参考答案与评分要点：` label plus scored points. Then run `scripts/verify_answer_keyed_paper.py <out.docx>` and `scripts/verify_docx.py <out.docx> assets/reference.docx`, render to PDF, and review every page for orphan pages/labels.
+   - **Explicit teacher booklet only** (教师用 / 答案册 / 评分细则 / 答案速查 / 对照表) → read pitfalls §10 and build with `scripts/build_answer_docx.py`: four-line teacher header, no 学号/姓名/score table, unbreakable code blocks and table rows.
+   Never decide by the filename alone, and never use `build_answer_docx.py` for the default answer output.
 
 If the syllabus says 考查 (no written exam) while the user requests a written final, flag the conflict explicitly instead of silently changing the assessment design.
 
@@ -82,7 +89,10 @@ Do not copy source exam PDFs, generated exams, student data, credentials, or QA 
 | Deliver once `verify_docx.py` passes | Render PDF and run per-page split checks (pitfalls §5) |
 | Generate A and B from the same pool and eyeball for overlap | Run the A/B dedup gate: stems, option sets, answer sequence, subjective-answer similarity (pitfalls §8) |
 | Hand-edit the generated DOCX | Change the spec/generator and rebuild |
-| Reuse the student-paper layout for the answer key | Teacher header, no 学号/姓名/score table (pitfalls §10.2) |
+| Reuse the student-paper layout for a §10 teacher booklet | Teacher header, no 学号/姓名/score table (pitfalls §10.2); for an answer-keyed paper the student layout is required (pitfalls §11) |
+| Build an 答案卷 with the §10 teacher-header builder | Default to the answer-keyed paper from the student spec (§11.1); §10 booklet is an explicit opt-in |
+| Produce a separate teacher booklet when the user only says 答案 | Route to `answer-keyed-paper` and use `build_answer_keyed_paper.py` |
+| Run `verify_docx.py` on a user-resaved DOCX | Treat it as 人工修订态: content gates only, no byte-identical check (pitfalls §11.5) |
 | Hand-copy A/B answer differences into a comparison table | Parse both answer files and compute the counts (pitfalls §10.5) |
 | Render a code-heavy paper with `build_from_spec.py` | Use `scripts/build_code_exam.py` (pitfalls §9.5) |
 | Print internal unit IDs like `A9+A10` on the paper | Keep them in the teacher detail sheet only; number questions per section (pitfalls §9.1) |
@@ -106,7 +116,10 @@ python scripts/route_request.py "对比这两个 Word" standard.docx exam.docx
 python scripts/compare_docx.py standard.docx exam.docx --json-output diff.json --markdown-output diff.md
 python scripts/build_from_spec.py assets/reference.docx exam.json output.docx
 python scripts/build_code_exam.py exam.json output.docx          # code-heavy papers (pitfalls §9)
-python scripts/build_answer_docx.py answer.json answer.docx     # answer key / rubric (pitfalls §10)
+python scripts/build_answer_docx.py answer.json answer.docx     # explicit teacher booklet (pitfalls §10)
+python scripts/build_answer_keyed_paper.py exam-spec-A.json objective.json answer.md answer-keyed.docx --spec-out keyed-spec.json
+python scripts/verify_answer_keyed_paper.py answer-keyed.docx
+python scripts/route_request.py "出一下答案"                     # -> answer-keyed-paper (no attachment needed)
 python scripts/verify_docx.py output.docx assets/reference.docx
 ```
 
