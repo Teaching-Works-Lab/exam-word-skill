@@ -793,6 +793,7 @@ python scripts/check_paper_content.py exam-spec.json objective.json answer.md \
 
 - [ ] `check_paper_content.py` 退出码 0（或所有 warning 已人工确认）
 - [ ] 题干清晰性 0 条 error；所有口号式代称已改为标准术语或已在题干内定义
+- [ ] 参考答案逐条对应题干实际提问，没有题目未问的“好处/意义/背景”分点
 - [ ] blueprint 全部单元有覆盖，没有“某单元 0 题”
 - [ ] 内容报告留档，逐条列出处理动作（改哪题、换成什么考点）
 - [ ] 改完题目后重新跑本门禁 + §8 A/B 查重 + §5 渲染验收
@@ -801,7 +802,7 @@ python scripts/check_paper_content.py exam-spec.json objective.json answer.md \
 
 题干“根本没说清”不是排版问题，不能等到 DOCX/PDF 阶段再发现。正确检查点是：
 
-1. **命题草稿 / paper-detail alignment draft 阶段**：逐题自问“不看答案册，考生能否知道要答什么？引号里是自造口号还是标准术语？适用条件/比较维度是否明确？”——这是第一道、也是最有效的反思点。
+1. **命题草稿 / paper-detail alignment draft 阶段**：逐题自问“不看答案册，考生能否知道要答什么？引号里是自造口号还是标准术语？适用条件/比较维度是否明确？参考答案是否逐条对应题干实际提问，而不是给题目没问的好处/意义另设分点？”——这是第一道、也是最有效的反思点。
 2. **构建 DOCX 之前**：跑 `check_paper_content.py`，让“题干不清”和重复/泄题/覆盖缺口一起阻断构建；error 未清零不得进入 `build_from_spec.py`。
 3. **PDF 渲染阶段**：只检查分页、截断、错位，不负责判断题意是否清楚。若到这里才发现题干不清，说明前两道门禁失守，必须回到 spec 改题并重建，而不是手改 DOCX。
 
