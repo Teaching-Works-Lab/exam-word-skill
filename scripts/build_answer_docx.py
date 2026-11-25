@@ -161,7 +161,32 @@ def _render_table(doc, rows, header=True):
     tbl = doc.add_table(rows=len(rows), cols=cols)
     tbl.style = "Normal Table"
     tbl.alignment = WD_TABLE_ALIGNMENT.LEFT
-    tbl.autofit = True
+    # 固定列宽、总宽 = 正文宽：autofit 会按长内容把表撑出版心，超宽表格会把紧随
+    # 其后的段落挤成每行一字（LibreOffice 实测：5 列对照表溢出 10pt）。
+    tbl.autofit = False
+    sect = doc.sections[0]
+    body_tw = (int(sect.page_width) - int(sect.left_margin) - int(sect.right_margin)) // 635
+    weights = []
+    for j in range(cols):
+        longest = max((len(str(r[j])) if j < len(r) else 0) for r in rows)
+        weights.append(max(longest, 4))
+    weight_sum = sum(weights)
+    grid = tbl._tbl.find(qn("w:tblGrid"))
+    col_els = grid.findall(qn("w:gridCol")) if grid is not None else []
+    used = 0
+    for i, col_el in enumerate(col_els):
+        if i == len(col_els) - 1:
+            w = body_tw - used
+        else:
+            w = int(body_tw * weights[i] / weight_sum)
+            used += w
+        col_el.set(qn("w:w"), str(w))
+    tblW = tbl._tbl.tblPr.find(qn("w:tblW"))
+    if tblW is None:
+        tblW = OxmlElement("w:tblW")
+        tbl._tbl.tblPr.append(tblW)
+    tblW.set(qn("w:type"), "dxa")
+    tblW.set(qn("w:w"), str(body_tw))
     _table_borders(tbl)
     for i, row in enumerate(rows):
         trPr = tbl.rows[i]._tr.get_or_add_trPr()
@@ -246,8 +271,12 @@ def _render_block(doc, block, next_type=None):
         emphasize = block.get("bold") or bool(
             __import__("re").match(r"^(评分|给分提示|评分要点|优秀示例|说明|指出|改进版|修改后|测试用例|分级样例)", text)
         )
-        # 「评分要点：」这类标签必须与紧随其后的表格 / 代码同页
-        keep = bool(next_type in ("table", "code") and text.rstrip().endswith(("：", ":")))
+        # 「评分要点：」这类标签必须与紧随其后的表格 / 代码 / 要点同页；
+        # 无冒号的纯标签行（参考答案 / 评分要点）同样不能孤零零留在页尾（§10.4-4）。
+        is_label = bool(__import__("re").match(
+            r"^(参考答案|评分要点|给分提示|测试用例|分级样例|示例|说明)\s*[:：]?\s*$", text))
+        keep = bool(next_type in ("table", "code", "bullet")
+                    and (text.rstrip().endswith(("：", ":")) or is_label))
         _para(doc, text, bold=emphasize, keep=keep)
     elif kind == "bullet":
         _para(doc, (block.get("mark", "• ") + block["text"]),

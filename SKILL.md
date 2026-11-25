@@ -88,6 +88,8 @@ Do not copy source exam PDFs, generated exams, student data, credentials, or QA 
 | Print internal unit IDs like `A9+A10` on the paper | Keep them in the teacher detail sheet only; number questions per section (pitfalls §9.1) |
 | Use fractional marks or put the score before the sentence | Integers only, suffix `（N 分）` at sentence end, sync the answer key (pitfalls §9.2) |
 | Paste incomplete code fragments, with borders or line numbers | Compilable full program, no border/line number, Consolas + 宋体 (pitfalls §9.3) |
+| Let an answer-key table autofit to its longest cell | Lock total width to the text column (pitfalls §10.4-5) |
+| Leave 「参考答案」/「评分要点」 as a bare label line at page bottom | Bind it to the first bullet with keep_with_next (pitfalls §10.4-4) |
 
 If the first action is not the router, the template is re-derived, or a source copy is retained, stop and return to this workflow.
 
