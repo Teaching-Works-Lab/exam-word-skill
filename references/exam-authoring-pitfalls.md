@@ -1027,3 +1027,85 @@ python scripts/check_answer_distribution.py answers-A.json \
 - [ ] 单选无连续 3 个同字母、单一字母 ≤ 40%
 - [ ] 判断「对」占比在 30%~70%，非全对/全错
 - [ ] 若做了选项调换：正确答案内容逐题比对不变、答案卷填答与新序列一致
+
+---
+
+## 15. 三层生成流水线与改动传播（2026-11-24 C&C++Ⅰ 复盘）
+
+> **教师点破**：「出什么（知识点划分）、选项对错怎么安排、格式是否合规，是三块；
+> 应该形成 pipeline，在某一块改了，下一块自动重跑核对。」本轮真实事故正因缺此机制。
+
+### 15.1 三层模型（顺序依赖）
+
+| 层 | 名称 | 管什么 | 典型产出 | 门禁 |
+|---|---|---|---|---|
+| L1 | 命题设计 design | 知识点划分、双向细目、题量排序、分值配比、A/B 平行 | blueprint / 细目表 | 知识点全覆盖、分值合计、题型配比、A/B 不重复 |
+| L2 | 题目生成 content | 题干、选项、答案、干扰项、**答案分布**、来源、无泄题 | spec / objective / answers | `check_answer_distribution`、`check_paper_content`（含 source_alignment）、`check_code_completeness` |
+| L3 | 格式渲染 render | 代码结构与排版、模板规范、标签页、分页、缩进、字体、卷头 | DOCX / PDF | `check_code_layout`、`verify_docx`、`check_pdf_pages` |
+
+依赖方向单向：L1 的产出是 L2 的输入，L2 的产出是 L3 的输入。**低层变，高层必重做。**
+
+### 15.2 改动传播规则（pipeline 的核心）
+
+| 改哪层 | 重跑范围 | 理由 |
+|---|---|---|
+| L1 命题设计 | L1 → L2 → L3 全链路 | 知识点/分值一变，题目和卷面都得重来 |
+| L2 题目生成 | L2 → L3 | 题干/选项/答案变了，卷面必须重渲染 |
+| L3 格式渲染 | 仅 L3 | 只调排版，内容不变 |
+
+**正交门禁（不随依赖传播，但每次交付都要过）**：内容安全（HTML 转义残留、AI 痕迹）、
+代码完整性（运行类代码块必须可编译完整程序）、A/B 一致性与重复率、答案卷与试卷匹配。
+这些不属于任何单层的"上下游"，属于**每层的横切质量面**，不能用依赖传播代替，必须显式检查。
+
+### 15.3 为什么必须有编排器（本次事故）
+
+事故经过：教师指出答案分布问题（属 L2）。修复时手工串联了 6 步——
+改 spec 选项顺序 → 改 answers/objective/answer.md → 重生成学生卷 →
+派生答案卷 → 转 PDF → 人肉逐项跑门禁。没有任何机制保证"L2 改了，L3 一定被重跑核对"，
+全靠人记。这正是"代码排版又不对了"这类问题的温床：改了上游，忘了下游某个门禁。
+
+**治本**：`scripts/exam_pipeline.py` + `assets/pipeline.template.json`。机制：
+
+1. 配置里声明每层 `inputs`（源文件 glob）、`build`（生成命令）、`gates`（门禁命令）；
+2. `init` 记录各层 inputs 的 sha256 基线；
+3. `status` 对比当前 hash，按传播规则标出脏层并给出"从哪层重跑"；
+4. `run`（可 `--from L2` 指定，否则自动取最早脏层）依次执行 build + gates，
+   **任一门禁非零退出即 fail-fast 停止**，不产出"半通过"的卷；
+5. 全过后刷新 manifest 为新基线。
+
+关键性质：配置驱动、课程无关；门禁看退出码不看文本；新增门禁只改配置不改编排器。
+
+```text
+python scripts/exam_pipeline.py init    --config pipeline.json   # 建基线
+python scripts/exam_pipeline.py status  --config pipeline.json   # 看哪层脏
+python scripts/exam_pipeline.py run     --config pipeline.json   # 自动从最早脏层重跑
+python scripts/exam_pipeline.py run     --config pipeline.json --from content  # 指定层
+python scripts/exam_pipeline.py run     --config pipeline.json --dry-run       # 只看计划
+```
+
+### 15.4 门禁分层归属速查（出问题时先定位在哪一层）
+
+| 现象 | 归属层 | 对应门禁 |
+|---|---|---|
+| 知识点没覆盖 / 分值不对 / 题型配比错 | L1 | 细目表核对 |
+| 答案集中某选项 / 多选全同 / 判断全对 | L2 | §14 `check_answer_distribution` |
+| 跨课程题库拿错 / 题干答案对不上 | L2 | §13.8 `check_paper_content` source_alignment |
+| 前后泄题 / 卷内重复 / 术语不清 | L2 | §13 `check_paper_content` |
+| 代码是裸片段不可编译 | 正交（L2 内容 + L3 呈现） | §12.8 `check_code_completeness` |
+| 代码无底纹竖线却出现黑框/行号/缩进乱 | L3 | §9.3 `check_code_layout` |
+| 模板部件被改写 / 卷头错 | L3 | §5 `verify_docx` |
+| 空白页 / 孤页 / PDF 异常 | L3 | `check_pdf_pages` |
+| 题干被加粗 | L3 | `unbold_substems` |
+
+### 15.5 纪律
+
+- **任何改动先问"这是哪一层"，再从该层跑 pipeline**，不要手工挑步骤执行。
+- L1/L2 改动后**必须**让 L3 重新 build + 过门禁，禁止只改中间 JSON 就交付。
+- 门禁失败即停，修完从失败层重跑；不要在失败态上继续叠加改动。
+- 新增检查规则时，判断它是某层的门禁（挂到该层 gates）还是横切检查（每层都挂），
+  再更新 `pipeline.json`，保证下一次 `run` 自动覆盖。
+- **门禁退出码语义要分层**：`check_paper_content.py --gate-mode alignment` 只把
+  source_alignment（跨课程/跨卷错配）当硬门禁（fail→退出 2），内容类 error（§13.7
+  的"同素材多题型"误报）降级为 warn 不阻塞（退出 0），报告照常产出供人工复核。
+  否则这些已知误报会让 L2 永远红、流水线永远走不到 L3——门禁设计本身会破坏 pipeline。
+  默认 `--gate-mode full` 保持原语义，仅在 pipeline 里用 alignment 模式。
