@@ -107,6 +107,7 @@ Do not copy source exam PDFs, generated exams, student data, credentials, or QA 
 | Insert an answer block right after the stem or after a chapter heading | Insert after the question's last element, stopping at `^[一二三四五六]、` (pitfalls §12.3) |
 | Hand-code one course's answers into a "generic" derivation script | Externalize answers to JSON; let array lengths drive question counts (pitfalls §12.4) |
 | Rebuild a finalized student-paper DOCX from spec just to add answers | Derive in DOCX body and restore the 7 template parts (pitfalls §12.4) |
+| Bold a stem or `(1)(2)(3)(4)` sub-question stem | Never bold any stem; keep bold only on headers, section titles, answer labels, table headers. For finalized DOCX use `scripts/unbold_substems.py` (pitfalls §12.9) |
 
 If the first action is not the router, the template is re-derived, or a source copy is retained, stop and return to this workflow.
 
@@ -130,6 +131,7 @@ python scripts/verify_answer_keyed_paper.py answer-keyed.docx
 python scripts/route_request.py "出一下答案"                     # -> answer-keyed-paper (no attachment needed)
 python scripts/verify_docx.py output.docx assets/reference.docx
 python scripts/check_code_completeness.py paper.md   # §12.8: run-the-code blocks must be full programs
+python scripts/unbold_substems.py paper.docx answer.docx  # §12.9: strip bold from (1)(2) sub-question stems, keep title/header bold
 ```
 
 For authored papers, PDF rendering plus per-page split detection is mandatory; see `references/exam-authoring-pitfalls.md` §5. Code-heavy papers additionally follow §9 and build with `scripts/build_code_exam.py`. Every layout fix belongs in the spec/generator, never in the DOCX.
