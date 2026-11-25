@@ -304,6 +304,17 @@ assert max_ans < ANSWER_LIMIT, f'主观题参考答案可套用（{max_ans:.2f}�
 - **OOXML 顺序坑**：`shaded` 模式下 `w:pBdr`/`w:shd` 必须用 `pPr.insert_element_before(...)` 插在 `w:spacing`/`w:ind` **之前**；直接 `append` 会触发 Word「文档需要修复」。已封装在 `build_code_exam.py::_add_code_frame`。
 - **门禁**：生成后用 `scripts/check_code_layout.py paper.docx --body-indent 283` 验收（默认 `plain`：要求无底纹无竖线 + 等宽/字号/缩进/无行号/无黑框/pPr 顺序）；带边界样式用 `--style shaded`。全项 `pass` 才合格；退出码 0 通过、1 有缺陷、2 未识别到代码块。脚本字体/底色/字号/特征词全部参数化，**换课程零改动**。
 
+**v6 缩进必须用 tab，不用行首空格（2026-11-25「int score / return 0 位置忽对忽错」复盘）**
+
+- **症状**：教师反馈某段代码里 `int score`、`return 0` 这几行"位置不对，有时候对有时候不对"。代码块属性（缩进 480、行距 13.5pt、字体）全部检查正常，Word/LibreOffice 渲染也整齐——但**腾讯文档在线预览里错位**。
+- **根因**：旧版缩进是**行首 4 个空格**，其宽度依赖 ascii 字体（Consolas）的等宽度量。在线文档/Web 渲染器字体回退成比例字体、或对连续空格做 collapse 时，行首空格宽度漂移或被吞，缩进就散了——因为"取决于渲染路径"，所以表现为"有时候对有时候不对"。
+- **治本**：行首每 4 空格换成 1 个 tab，段落设**固定 tab stops**（绝对坐标：`CODE_LEFT + CODE_TAB_STEP×级`，即 920/1360/1800... twips）。tab stop 是 OOXML 绝对坐标，任何兼容渲染器都必须跳到固定位置，**与字体是否等宽、是否折叠空格无关**。
+  - 只转换**行首**缩进；注释对齐用的**行内空格保持原样**，避免改坏注释列。
+  - 非 4 倍数的余量保留为空格（容错 2 空格缩进的续行）。
+  - 参数：`CODE_TAB_STEP=440`（≈Consolas 10pt 四空格宽）、`CODE_TAB_LEVELS=6`、`CODE_INDENT_UNIT=4`，集中在文件头。
+- **门禁**：`scripts/check_code_layout.py paper.docx --body-indent 283 --require-tabs`，多一项 `indent_by_tabs`（代码段必须有 tab stops 且缩进用 `w:tab`）。实测新 tab 版 13/13 PASS、旧空格版 0/13 FAIL。**`--require-tabs` 默认关闭**（历史空格版卷不误报），新卷的 pipeline 必须开启。
+- **迁移**：`build_code_exam.py::_add_code_tabs()` + `_leading_spaces_to_tabs()` 已封装；换课程零改动。回归测试 `tests/test_code_indent_tabs.py`（6 项）。
+
 ### 9.4 命题质量：选项与题型
 
 - 选择题各选项**长度与信息量做平**。某选项明显更长、信息更多，学生靠长短就能猜答案 → 本题作废重出（本次 T9 因此重出）。

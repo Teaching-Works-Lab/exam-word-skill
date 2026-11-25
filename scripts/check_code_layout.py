@@ -149,7 +149,7 @@ def _in_grid_table(p):
 
 
 def audit(docx_path, *, mono_fonts=None, shades=None, min_size=9.5, max_size=11.0,
-          body_indent=0, hints=None, style="plain"):
+          body_indent=0, hints=None, style="plain", require_tabs=False):
     """审计一个 DOCX 的代码块排版，返回结构化报告 dict。"""
     mono = set(mono_fonts) if mono_fonts else DEFAULT_MONO
     shade_set = set(shades) if shades else {s.upper() for s in DEFAULT_SHADES}
@@ -172,8 +172,11 @@ def audit(docx_path, *, mono_fonts=None, shades=None, min_size=9.5, max_size=11.
 
     shade_key = "no_shade" if style == "plain" else "has_shade"
     border_key = "no_border" if style == "plain" else "has_border"
-    checks = {k: 0 for k in (shade_key, border_key, "monospace", "size_ok",
-                             "indent_ok", "no_line_number", "no_table_grid", "ppr_order_ok")}
+    check_keys = [shade_key, border_key, "monospace", "size_ok",
+                  "indent_ok", "no_line_number", "no_table_grid", "ppr_order_ok"]
+    if require_tabs:
+        check_keys.append("indent_by_tabs")
+    checks = {k: 0 for k in check_keys}
     details = []
     for i, p in enumerate(codes):
         runs = _code_runs(p)
@@ -183,6 +186,11 @@ def audit(docx_path, *, mono_fonts=None, shades=None, min_size=9.5, max_size=11.
         sizes = [pt(r) for r in runs]
         ln = p._p.find(".//" + qn("w:lnNumType"))
         li = left_twips(p)
+        # tab 缩进判定：段落有固定 tab stops 且行首缩进用了 w:tab 元素
+        pPr = p._p.find(qn("w:pPr"))
+        tabs_el = pPr.find(qn("w:tabs")) if pPr is not None else None
+        has_tab_stops = tabs_el is not None and len(tabs_el.findall(qn("w:tab"))) > 0
+        has_tab_runs = len(p._p.findall(".//" + qn("w:tab"))) > 0
         row = {
             "idx": i,
             "lines": _all_text(p._p).count("\n") + 1,
@@ -205,6 +213,8 @@ def audit(docx_path, *, mono_fonts=None, shades=None, min_size=9.5, max_size=11.
             "no_table_grid": not _in_grid_table(p),
             "ppr_order_ok": _ppr_order_ok(p),
         }
+        if require_tabs:
+            c["indent_by_tabs"] = has_tab_stops and has_tab_runs
         for k, v in c.items():
             checks[k] += int(bool(v))
         row["checks"] = c
@@ -254,11 +264,14 @@ def main(argv=None):
     ap.add_argument("--hint", dest="hints", action="append", help="代码特征词（可多次）")
     ap.add_argument("--style", choices=["plain", "shaded"], default="plain",
                     help="plain=无底纹无竖线（默认）；shaded=浅灰底纹+左灰竖线")
+    ap.add_argument("--require-tabs", action="store_true",
+                    help="v6：强制代码缩进用 tab stops（字体回退也不错位）；老卷勿开")
     args = ap.parse_args(argv)
 
     rep = audit(args.docx, mono_fonts=args.fonts, shades=args.shades,
                 min_size=args.min_size, max_size=args.max_size,
-                body_indent=args.body_indent, hints=args.hints, style=args.style)
+                body_indent=args.body_indent, hints=args.hints, style=args.style,
+                require_tabs=args.require_tabs)
     print(format_report(rep))
     if args.json_out:
         Path(args.json_out).write_text(json.dumps(rep, ensure_ascii=False, indent=2),

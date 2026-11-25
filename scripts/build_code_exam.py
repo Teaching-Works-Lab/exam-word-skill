@@ -28,6 +28,10 @@
 * 字号 10pt、固定行距 13.5pt、段前 4pt / 段后 5pt，比正文略紧但呼吸舒适；
 * 代码块整体左缩进 480 twips，比正文/小问再内收一层，建立区块感；
 * ascii/hAnsi/cs = Consolas、eastAsia = 宋体，等宽对齐；
+* **缩进用 tab + 固定 tab stops（v6，2026-11-25）**：行首每 4 空格转 1 个 tab，
+  段落设绝对坐标 tab stops（920/1360/1800...twips）。这样即使预览/在线文档的
+  字体回退成比例字体，缩进仍落在固定位置——根治「int score / return 0 位置
+  忽对忽错」。行内注释对齐空格保持原样，不转换；
 * 仍用单段 + ``w:br`` 软换行 + ``keepLines``，不拆行、不跨页；
 * **视觉边界默认关闭**（教师 2026-11-24 定稿：不要底纹/竖线，保持卷面干净）；
   需要时把 ``CODE_FRAME`` 设为 ``"shaded"`` 即启用浅灰底纹 + 左灰竖线；
@@ -92,6 +96,13 @@ CODE_BAR = "A6A6A6"   # 代码块左侧竖线颜色（中灰，非黑框）
 CODE_BAR_SZ = "12"    # 左侧竖线粗细：1/8 pt 单位，12 = 1.5pt
 CODE_BAR_GAP = "6"    # 竖线与代码文字间距（pt）
 
+# 代码缩进用 tab 而非行首空格（v6，2026-11-25）：缩进位置由绝对坐标控制，
+# 不依赖 Consolas 是否可用——预览/在线文档字体回退成比例字体时，行首空格会
+# 宽度漂移导致 int score / return 0 错位，tab stop 则永远落在固定 twips 位置。
+CODE_TAB_STEP = 440   # 每级缩进宽度（twips）≈ Consolas 10pt 的 4 个空格
+CODE_TAB_LEVELS = 6   # 生成 6 级 tab stop，覆盖到 24 空格深缩进
+CODE_INDENT_UNIT = 4  # 源数据里每 4 个行首空格 = 1 级缩进
+
 # pPr 子元素必须按 OOXML schema 顺序插入，否则 Word 可能报"需要修复"
 _PPR_AFTER_BDR = ("w:shd", "w:tabs", "w:spacing", "w:ind",
                   "w:contextualSpacing", "w:jc", "w:rPr", "w:sectPr")
@@ -154,6 +165,29 @@ def _set_code_font(run, size):
     for attr in ("w:ascii", "w:hAnsi", "w:cs"):
         rFonts.set(qn(attr), "Consolas")
     rFonts.set(qn("w:eastAsia"), "宋体")
+
+
+def _add_code_tabs(p):
+    """给代码段落设固定 tab stops：缩进由绝对坐标控制，与字体是否等宽无关。
+
+    段落左缩进 CODE_LEFT，第一级 tab 落在 CODE_LEFT + CODE_TAB_STEP，
+    之后每级递增 CODE_TAB_STEP，与实验验证的 920/1360/1800... 一致。
+    """
+    for lvl in range(1, CODE_TAB_LEVELS + 1):
+        pos = CODE_LEFT + CODE_TAB_STEP * lvl
+        p.paragraph_format.tab_stops.add_tab_stop(Twips(pos), WD_TAB_ALIGNMENT.LEFT)
+
+
+def _leading_spaces_to_tabs(line):
+    """把行首的每 4 个空格换成 1 个 tab，其余（含行内对齐空格）原样保留。
+
+    只动行首缩进——注释对齐用的行内空格保持原样，避免改变注释列位置。
+    非 4 倍数的余量保留为空格（容错：源数据偶有 2 空格缩进的续行）。
+    """
+    stripped = line.lstrip(" ")
+    n_space = len(line) - len(stripped)
+    n_tab, rem = divmod(n_space, CODE_INDENT_UNIT)
+    return "\t" * n_tab + " " * rem + stripped
 
 
 def _add_code_frame(p):
@@ -239,9 +273,11 @@ def _render_unit(cell, blocks):
             p = _cell_para(cell, first, "", left=CODE_LEFT,
                            before=CODE_BEFORE, after=CODE_AFTER, line=CODE_LINE)
             _add_code_frame(p)
+            _add_code_tabs(p)  # v6：缩进用固定 tab stops，字体回退也不错位
             lines = block["lines"]
             for i, line in enumerate(lines):
-                run = p.add_run(line if line else " ")
+                text = _leading_spaces_to_tabs(line) if line else " "
+                run = p.add_run(text)
                 _set_code_font(run, CODE_SIZE)
                 if i < len(lines) - 1:
                     run.add_break()

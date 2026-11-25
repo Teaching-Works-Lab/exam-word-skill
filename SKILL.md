@@ -104,6 +104,7 @@ Do not copy source exam PDFs, generated exams, student data, credentials, or QA 
 | Print internal unit IDs like `A9+A10` on the paper | Keep them in the teacher detail sheet only; number questions per section (pitfalls §9.1) |
 | Use fractional marks or put the score before the sentence | Integers only, suffix `（N 分）` at sentence end, sync the answer key (pitfalls §9.2) |
 | Paste incomplete code fragments, with borders or line numbers | Compilable full program; professional code block = clean NO shade / NO border (teacher's final call), monospace 10pt, 13.5pt line spacing, inner-indent, Consolas + 宋体 (pitfalls §9.3 v5, §12.8); verify with `scripts/check_code_layout.py` (default `plain`); compile every 'run the code' block and compare output with the answer key |
+| Code indent via leading spaces → `int score` / `return 0` drift in online preview (font fallback / space collapse) | Use tab + fixed tab stops: leading 4 spaces → 1 `w:tab`, paragraph tab stops at absolute twips (pitfalls §9.3 v6); gate with `check_code_layout.py --require-tabs`; inline comment spacing untouched |
 | Leave answers concentrated on one option (B×6/10) or all multiple-choice = ABC | Rebalance by permuting option positions without changing any question/answer content, then gate with `scripts/check_answer_distribution.py` — hard rule for EVERY paper (pitfalls §14) |
 | Hand-pick build/gate steps after an upstream change (change answers → regenerate by memory) | Set up the three-layer `pipeline.json` and run `scripts/exam_pipeline.py` so downstream layers auto-rerun with fail-fast gates (pitfalls §15) |
 | Bake Markdown backticks / `**` / `&lt;` into the answer surface (``输出：`sum=10` ``) — looks like "code format still wrong" but code blocks are actually fine | `clean_markdown()` in derive script before `add_run`, plus MANDATORY last gate `scripts/check_final_gate.py` on finished DOCX (code paragraphs exempt); add to render.gates (pitfalls §15.6) |
@@ -142,6 +143,7 @@ python scripts/check_paper_content.py spec.json objective.json answer.md --gate-
 python scripts/verify_docx.py output.docx assets/reference.docx
 python scripts/check_code_completeness.py paper.md   # §12.8: run-the-code blocks must be full programs
 python scripts/check_code_layout.py output.docx --body-indent 283  # §9.3: code-block visual gate (plain=NO shade/border + monospace/size/indent/no-grid/no-line-number/pPr order); --style shaded for shaded variant; exit 1 on FAIL
+python scripts/check_code_layout.py output.docx --body-indent 283 --require-tabs  # §9.3 v6: ALSO enforce tab-based indentation (font-fallback-safe); enable in pipeline for NEW papers, not for legacy space-indented ones
 python scripts/check_answer_distribution.py answers-A.json         # §14: objective-answer distribution gate (single <=40%/no run>2, multi combo<=2 & distractor spread, judge true in 30-70%); exit 1 on FAIL
 python scripts/check_pdf_pages.py paper.pdf --min-last-page-chars 60  # L3: PDF blank/lone-page gate (needs pymupdf)
 python scripts/exam_pipeline.py init    --config pipeline.json     # §15: record per-layer input hashes baseline

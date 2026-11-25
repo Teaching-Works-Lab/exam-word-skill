@@ -28,7 +28,7 @@
       ["{soffice}", "--headless", "--convert-to", "pdf", "paper-A-answer.docx", "--outdir", "."]
     ],
     "gates": [
-      ["{python}", "scripts/check_code_layout.py", "paper-A.docx", "--body-indent", "283"],
+      ["{python}", "scripts/check_code_layout.py", "paper-A.docx", "--body-indent", "283", "--require-tabs"],
       ["{python}", "scripts/verify_docx.py", "paper-A.docx", "assets/reference.docx"],
       ["{python}", "scripts/check_pdf_pages.py", "paper-A.pdf", "--min-last-page-chars", "60"],
       ["{python}", "scripts/check_pdf_pages.py", "paper-A-answer.pdf", "--min-last-page-chars", "60"],
