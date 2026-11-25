@@ -48,6 +48,35 @@ QUESTION_RE = re.compile(r"^\d+\s*[、.]")
 BRACKET_RE = re.compile(r"([（(])\s*[\u3000 ]*\s*([)）])")
 
 
+def clean_markdown(text):
+    """清理答案文本里会误印到卷面的 Markdown 标记（§15.6 长约束）。
+
+    答案 Markdown 常用反引号标记代码（如 ``输出：`sum=10` ``、```x << 1` 左移``），
+    这些反引号若原样 add_run 会直接印在试卷上，是学生/教师一眼可见的"格式不对"。
+    注意：**只处理自然语言答案文本**，不碰题干代码块（那些走 build_code_exam.py，
+    里面的 ``/* */``、``*``、``#define`` 都是合法 C 语法）。
+
+    清理范围（保守，只清确定会印错的）：
+      * 成对反引号 `` `code` `` -> code（含多行 ``` 围栏已由上游去除）
+      * 行首列表标记 "- " / "* " / "+ " -> 去掉
+      * 强调标记 ** / __ -> 去掉
+      * HTML 转义 &lt; &gt; &amp; &quot; -> 还原
+    """
+    if not text:
+        return text
+    s = str(text)
+    # HTML 转义还原（答案文本里 & 多为普通字符或比较符，还原不会破坏排版）
+    s = (s.replace("&lt;", "<").replace("&gt;", ">")
+          .replace("&quot;", '"').replace("&amp;", "&"))
+    # 行内代码反引号：成对去掉，保留内容
+    s = re.sub(r"`+([^`\n]+?)`+", r"\1", s)
+    # 强调标记
+    s = s.replace("**", "").replace("__", "")
+    # 行首列表符号（逐行处理，避免误伤行中字符）
+    s = "\n".join(re.sub(r"^\s*[-+*]\s+", "", ln) for ln in s.split("\n"))
+    return s
+
+
 def para_text(el):
     return "".join(t.text or "" for t in el.iter(qn("w:t")))
 
@@ -228,7 +257,8 @@ def derive(student, answers_path, out):
         a.paragraph_format.keep_with_next = True
         inserted += 1
         for mark, text in points:
-            a = add_answer_para(a, f"（{mark} 分）{text}", a._p, left=left, first=first)
+            # §15.6：答案文本写入卷面前统一清理 Markdown 标记，防止反引号印错
+            a = add_answer_para(a, f"（{mark} 分）{clean_markdown(text)}", a._p, left=left, first=first)
             inserted += 1
 
     for p in doc.paragraphs[:6]:

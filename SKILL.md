@@ -106,6 +106,7 @@ Do not copy source exam PDFs, generated exams, student data, credentials, or QA 
 | Paste incomplete code fragments, with borders or line numbers | Compilable full program; professional code block = clean NO shade / NO border (teacher's final call), monospace 10pt, 13.5pt line spacing, inner-indent, Consolas + 宋体 (pitfalls §9.3 v5, §12.8); verify with `scripts/check_code_layout.py` (default `plain`); compile every 'run the code' block and compare output with the answer key |
 | Leave answers concentrated on one option (B×6/10) or all multiple-choice = ABC | Rebalance by permuting option positions without changing any question/answer content, then gate with `scripts/check_answer_distribution.py` — hard rule for EVERY paper (pitfalls §14) |
 | Hand-pick build/gate steps after an upstream change (change answers → regenerate by memory) | Set up the three-layer `pipeline.json` and run `scripts/exam_pipeline.py` so downstream layers auto-rerun with fail-fast gates (pitfalls §15) |
+| Bake Markdown backticks / `**` / `&lt;` into the answer surface (``输出：`sum=10` ``) — looks like "code format still wrong" but code blocks are actually fine | `clean_markdown()` in derive script before `add_run`, plus MANDATORY last gate `scripts/check_final_gate.py` on finished DOCX (code paragraphs exempt); add to render.gates (pitfalls §15.6) |
 | Let an answer-key table autofit to its longest cell | Lock total width to the text column (pitfalls §10.4-5) |
 | Leave 「参考答案」/「评分要点」 as a bare label line at page bottom | Bind it to the first bullet with keep_with_next (pitfalls §10.4-4) |
 | Hard-code 18/6 question counts, `FULL_MARKS`, or 425/-142 indent in a verifier | Derive everything from the paper; regression-test on 3 structures (pitfalls §12.1, §12.5) |
@@ -147,6 +148,7 @@ python scripts/exam_pipeline.py init    --config pipeline.json     # §15: recor
 python scripts/exam_pipeline.py status  --config pipeline.json     # §15: show dirty layers + where to re-run from
 python scripts/exam_pipeline.py run     --config pipeline.json     # §15: re-run from earliest dirty layer, fail-fast gates, refresh baseline
 python scripts/exam_pipeline.py run     --config pipeline.json --from content --dry-run  # §15: preview plan
+python scripts/check_final_gate.py paper.docx answer.docx    # §15.6: MANDATORY last gate — scan finished DOCX surface text for Markdown/HTML/AI residue; exit 1 on FAIL; add to render.gates LAST
 python scripts/unbold_substems.py paper.docx answer.docx  # §12.9: strip bold from (1)(2) sub-question stems, keep title/header bold
 ```
 

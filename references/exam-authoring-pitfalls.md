@@ -1109,3 +1109,75 @@ python scripts/exam_pipeline.py run     --config pipeline.json --dry-run       #
   的"同素材多题型"误报）降级为 warn 不阻塞（退出 0），报告照常产出供人工复核。
   否则这些已知误报会让 L2 永远红、流水线永远走不到 L3——门禁设计本身会破坏 pipeline。
   默认 `--gate-mode full` 保持原语义，仅在 pipeline 里用 alignment 模式。
+
+---
+
+## 15.6 长约束与最终强制门禁：反引号残留复盘（2026-11-25）
+
+> **教师原话**：「代码格式还没改过来……约束得是个长约束、强制约束，在最后。
+> 每一阶段注意力不一样，可以每阶段侧重不同注意力；上下文太长可以定期清空上下文，
+> 每一阶段目标不一样。」
+
+### 事故与根因
+
+教师反复反馈"代码格式不对"，但代码块的 OOXML 属性（缩进 480、行距 13.5pt、
+等宽、无底纹竖线）每次检查都对，代码排版门禁也 PASS。**真正的缺陷不在代码块，
+而在答案卷的"参考答案"文本里**：答案 Markdown 用反引号标记代码
+（``输出：`sum=10` ``、```x << 1` 左移``、`**强调**`），这些标记被原样
+`add_run()` 印到卷面，学生一眼就看到 `` ` ``——这才是"看着不对"的实证。
+
+链路断点（四个环节没有一个清理 Markdown）：
+`answer-{卷}.md`（带反引号）→ `build_inputs.py` 原样搬进 `answers-{卷}.json`
+→ `derive_answer_keyed_from_docx.py` 的 `add_answer_para()` 直接 `add_run(text)`
+→ 成品 DOCX/PDF。
+
+**为什么所有门禁都漏了**：
+- `check_code_layout.py` 只检查代码段的 OOXML 属性，不读卷面文本；
+- `check_paper_content.py` 检查的是 spec/objective 的内容一致性，不检查成品卷面；
+- pipeline 的 render 层门禁里没有一道"读成品文本找残留"的检查。
+
+结论：**"生成时正确"不等于"卷面干净"。必须有最后一道直接读成品的强制门禁。**
+
+### 治本：双保险（生成时 clean + 交付前 verify）
+
+1. **生成时清理**：`derive_answer_keyed_from_docx.py::clean_markdown()` 在答案文本
+   `add_run` 前统一去掉反引号、`**`/`__`、行首列表符、HTML 转义。
+   只处理自然语言答案文本，**不碰代码块**（C 里的 `/* */`、`*`、`#define` 合法）。
+   当前 A/B 答案册清理后残留均为 0。
+2. **交付前强制门禁**：`scripts/check_final_gate.py`，直接读成品 DOCX 卷面文本，
+   5 项检查：无反引号、无 HTML 转义、无 `**`/`__`、无行首列表符、无 AI 痕迹。
+   代码段豁免（有 `w:br` 或 `#include/int main/#define/printf(` 的段落跳过），
+   空白页/空段交给 `check_pdf_pages.py`，职责不重叠。
+   实测：修复前 A 答案卷抓出反引号 7 处 + `**` 1 处 FAIL；修复后 4 份全 PASS。
+   **已接入 A/B pipeline 的 render.gates 末尾**——无论上游怎么改，最后必过这道。
+
+### 方法论：阶段注意力 + 重约束注入（可迁移到任何长流程）
+
+教师点出的是长上下文的通病：**约束写在开头，跑到后面注意力衰减、被稀释**。
+本 Skill 的应对（已落地在 pipeline 设计里）：
+
+- **分层聚焦**：L1 只看命题设计、L2 只看题目生成、L3 只看格式渲染。
+  每层 gates 只挂本层的检查，不让 Agent 在一步里同时盯所有约束。
+- **强制门禁后置**：跨层的"卷面干净"这类长约束不靠记忆，做成**独立的最后阶段**
+  （`check_final_gate.py`），每轮交付都重新执行、携带完整规则，等效于"清空上下文后
+  用单一目标重跑一遍"。
+- **退出码驱动**：门禁只看退出码、不看 Agent 自述，"我检查过了"不算数，
+  非零即 fail-fast，杜绝"注意力漂移导致的漏检"。
+- **何时真正清空上下文**：当一次任务里已经反复修同一类问题 3 次以上仍复现，
+  说明当前上下文里的旧假设在干扰判断（如本次一直盯着代码块属性、忽略答案文本）。
+  正确做法是**换一个独立视角直接读成品**（新脚本/新门禁），而不是在旧上下文里继续推理。
+
+### 门禁用法与判据
+
+```text
+python scripts/check_final_gate.py paper.docx answer.docx   # 退出码 0=PASS 1=FAIL
+python scripts/check_final_gate.py answer.docx --json gate.json
+```
+
+| 现象 | 归属 | 门禁 |
+|---|---|---|
+| 卷面出现反引号 `` ` `` | 答案文本生成 | §15.6 `check_final_gate.no_backtick` + 源头 `clean_markdown` |
+| 卷面出现 `**` / `&lt;` / 行首 `- ` | 答案文本生成 | 同上 |
+| 卷面出现 AI 客套话 | 内容生成 | 同上 `no_ai_stamp` |
+| 代码块缩进/行距/底纹错 | L3 渲染 | §9.3 `check_code_layout` |
+| 空白页 / 孤页 | L3 渲染 | `check_pdf_pages` |

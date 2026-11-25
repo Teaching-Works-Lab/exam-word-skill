@@ -18,7 +18,7 @@
     ]
   },
   "render": {
-    "_comment": "L3 格式渲染：build→派生答案→去子题干加粗→PDF；门禁含代码排版与模板保真。任一失败即 fail-fast。",
+    "_comment": "L3 格式渲染：build→派生答案→去子题干加粗→PDF；门禁含代码排版、模板保真、PDF逐页，最后必须跑 check_final_gate（§15.6 长约束：读成品文本查 Markdown/HTML/AI 残留）。任一失败即 fail-fast。",
     "inputs": ["spec-A.json", "answers-A.json"],
     "build": [
       ["{python}", "scripts/build_code_exam.py", "spec-A.json", "paper-A.docx"],
@@ -31,7 +31,8 @@
       ["{python}", "scripts/check_code_layout.py", "paper-A.docx", "--body-indent", "283"],
       ["{python}", "scripts/verify_docx.py", "paper-A.docx", "assets/reference.docx"],
       ["{python}", "scripts/check_pdf_pages.py", "paper-A.pdf", "--min-last-page-chars", "60"],
-      ["{python}", "scripts/check_pdf_pages.py", "paper-A-answer.pdf", "--min-last-page-chars", "60"]
+      ["{python}", "scripts/check_pdf_pages.py", "paper-A-answer.pdf", "--min-last-page-chars", "60"],
+      ["{python}", "scripts/check_final_gate.py", "paper-A.docx", "paper-A-answer.docx"]
     ]
   }
 }
