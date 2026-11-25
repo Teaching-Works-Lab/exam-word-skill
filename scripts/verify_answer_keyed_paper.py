@@ -47,7 +47,11 @@ def txt(el):
 
 
 def body_items(doc):
-    """按文档顺序返回 (kind, object, text)，kind 为 p / tbl。"""
+    """按文档顺序返回 (kind, object, text)。
+
+    kind: p=顶层段落；tbl=表格（文本为全表拼接，供题目切分）；
+    cell-p=表格单元格内段落（供标签/分值要点识别）。
+    """
     out = []
     for el in doc.element.body:
         tag = el.tag.split("}")[-1]
@@ -55,6 +59,9 @@ def body_items(doc):
             out.append(("p", Paragraph(el, doc._body), txt(el)))
         elif tag == "tbl":
             out.append(("tbl", el, txt(el)))
+            # 表格内段落也纳入（答案块可能插在单元格内）
+            for p in el.iter(W + "p"):
+                out.append(("cell-p", Paragraph(p, doc._body), txt(p)))
     return out
 
 
@@ -81,29 +88,46 @@ def docprops_text(path):
 
 
 def split_questions(items):
-    """按题号行切题，返回 [(kind, start_index, end_index, stem_text)]。"""
+    """按题号切题，返回 [(kind, start_index, end_index, stem_text)]。
+
+    兼容两种版式：段落题（题干在 w:p）与表格行题（一大题一表、一行一题）。
+    表格题的 start/end 指向该表格元素，stem 为行内文本，用 ' | ' 拼接。
+    """
     starts = []
     for i, (kind, obj, text) in enumerate(items):
         s = text.strip()
         if kind == "p" and QUESTION.match(s) and not CHAPTER.match(s):
             starts.append(i)
+        elif kind == "tbl":
+            # 表格题：从单元格文本里提取所有题号行，作为一个复合 question
+            first_line = s.splitlines()[0] if s else ""
+            if QUESTION.match(first_line):
+                starts.append(i)
     questions = []
     for j, s in enumerate(starts):
         e = starts[j + 1] if j + 1 < len(starts) else len(items)
-        # 题与题之间若出现新章标题，题范围到章标题为止
         for k in range(s + 1, e):
             if items[k][0] == "p" and CHAPTER.match(items[k][2].strip()):
                 e = k
                 break
-        questions.append(("p", s, e, items[s][2].strip()))
-    return questions
+        questions.append((items[s][0], s, e, items[s][2].strip()))
+    # 表格复合 question 拆成逐题（每题一行，继承表格范围）
+    expanded = []
+    for kind, s, e, stem in questions:
+        if kind == "tbl":
+            for line in stem.splitlines():
+                if QUESTION.match(line.strip()):
+                    expanded.append(("tbl", s, e, line.strip()))
+        else:
+            expanded.append((kind, s, e, stem))
+    return expanded
 
 
 def run(path, spec_path=None):
     errors, checks = [], {}
     doc = Document(str(path))
     items = body_items(doc)
-    paras = [t for k, _, t in items if k == "p"]
+    paras = [t for k, _, t in items if k in ("p", "cell-p")]
     text = "\n".join(paras)
     props = docprops_text(path)
     questions = split_questions(items)
@@ -133,10 +157,20 @@ def run(path, spec_path=None):
     check("score_table_blank", tbl_ok, detail)
 
     # 3 题目分类：题目范围内出现统一标签 → 主观题；否则客观题
+    # 表格版式（一大题一表）里一个表格含多道主观题，按该范围内的标签数展开
     objective, subjective = [], []
-    for _, s, e, stem in questions:
-        has_label = any(items[k][2].strip() == RUBRIC_LABEL for k in range(s, e))
-        (subjective if has_label else objective).append((stem, s, e))
+    for kind, s, e, stem in questions:
+        label_idxs = [k for k in range(s, e)
+                      if items[k][0] in ("p", "cell-p") and items[k][2].strip() == RUBRIC_LABEL]
+        if not label_idxs:
+            objective.append((stem, s, e))
+        else:
+            # 每道主观题对应一个标签：满分按表格题干行顺序取
+            stems = [ln.strip() for ln in stem.splitlines() if QUESTION.match(ln.strip())] or [stem]
+            for j, li in enumerate(label_idxs):
+                sub_stem = stems[j] if j < len(stems) else stem
+                end = label_idxs[j + 1] if j + 1 < len(label_idxs) else e
+                subjective.append((sub_stem, li, end))
 
     unfilled = []
     for stem, s, e in objective:
@@ -215,7 +249,7 @@ def run(path, spec_path=None):
     # 6 标签必须绑定首条要点：keep_with_next + 文档顺序下一段是分值要点
     unbound = []
     for i, (kind, obj, t) in enumerate(items):
-        if kind != "p" or t.strip() != RUBRIC_LABEL:
+        if kind not in ("p", "cell-p") or t.strip() != RUBRIC_LABEL:
             continue
         nxt = items[i + 1] if i + 1 < len(items) else ("", None, "")
         ns = nxt[2].strip()
@@ -227,7 +261,7 @@ def run(path, spec_path=None):
     # 7 标签不能错位到章标题之后（§11 派生插入点规则）
     misplaced = []
     for i, (kind, obj, t) in enumerate(items):
-        if kind != "p" or t.strip() != RUBRIC_LABEL:
+        if kind not in ("p", "cell-p") or t.strip() != RUBRIC_LABEL:
             continue
         prev = items[i - 1] if i > 0 else ("", None, "")
         if prev[0] == "p" and CHAPTER.match(prev[2].strip()):
@@ -250,7 +284,7 @@ def run(path, spec_path=None):
     # 9 小问逐行缩进：取卷面首个小问的实际缩进为期望，检查一致性
     subq, in_answer = [], False
     for kind, obj, t in items:
-        if kind != "p":
+        if kind not in ("p", "cell-p"):
             continue
         s = t.strip()
         if s == RUBRIC_LABEL:
