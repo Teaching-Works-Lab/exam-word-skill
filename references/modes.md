@@ -41,6 +41,10 @@ Output: one new DOCX beside the student paper; never overwrite the source. Gates
 
 Inputs: an answer spec (`answer-spec-*.json`). Trigger **only** when the request explicitly says 教师用 / 答案册 / 评分细则 / 答案速查 / 对照表. Build with `scripts/build_answer_docx.py`, then `verify_docx.py` + PDF review. See `references/exam-authoring-pitfalls.md` §10. This is not the default answer output.
 
+## Content quality gate (before building any authored paper)
+
+Run `scripts/check_paper_content.py <spec.json> <objective.json> <answer.md> [--blueprint blueprint.json] [--md-out report.md]` before `build_from_spec.py` / `build_code_exam.py`. It fails the paper when an earlier objective item already states a later subjective rubric point, when the same concept is reused across items, or when a blueprint unit has zero coverage. Formatting checks cannot catch these defects; see pitfalls §13.
+
 ## Structured Exam JSON
 
 The builder accepts UTF-8 JSON with `metadata` and `pages`:
