@@ -51,6 +51,11 @@ When the user asks to **author** a paper (出题 / 组卷 / 生成试卷 / 出�
 1. Read `references/exam-authoring-pitfalls.md` in full before touching the builder. It is the authoritative checklist for content sourcing, score-table blanking, sub-question splitting, pagination guards, and render acceptance; every rule there came from a real rework. For **code-heavy papers** (程序阅读 / 查错与测试 / 含多行代码的试卷), §9 and §12.8 are mandatory: build with `scripts/build_code_exam.py` instead of `build_from_spec.py`, which has no `code` block and cannot keep a code block on the same page as its options.
 2. Produce a **paper-detail alignment draft** first (依据材料 / 题库盘点 / 卷面结构 / 逐题明细 / 单元与课程目标覆盖 / 待确认事项). Do not build or deliver the final DOCX until the user confirms the exam type, section structure, score split, and paper count (A only or A/B).
 3. Keep one structured JSON as the single content source. Generate the spec, the detail sheet, and the separate answer key from one generator script so they cannot drift; never hand-edit the DOCX.
+   - **三卷同出（默认，2026-11-25 起）**：一份卷子教学上同时需要三种互不兼容的格式，必须**从同一份源一次生成三份**，禁止只改其中一份 DOCX：
+     1. **学生卷**（正式 Word 排版，印刷下发）；
+     2. **卷面标注答案卷**（学生卷原卷面填空 + 答案要点，教师阅卷；答案与评分细则就嵌在这里，**不再单独出「参考答案与评分细则」册**）；
+     3. **学习通导入版**（每行 `序号.【题型】题干` + `答案：` 行，全局连续编号，供超星 Word 智能导入）。
+     用 `scripts/build_three_papers.py --spec <student-spec> --objective <objective.json> --answers <answer.md> --outdir <dir> --stem <名称>` 一键生成三份并自动跑一致性/模板/卷面门禁。若已有标注卷 spec，加 `--keyed-spec` 复用。换题、改答案一律**先改源（spec/objective/answer md），再重跑脚本**，三份一起重建——只改 docx 必然导致三份内容漂移（§16）。
 4. Apply the gates in `references/exam-authoring-pitfalls.md` §5 (verify → content checks → PDF render → per-page split detection → PNG visual review) before delivery. `verify_docx.py` passing is necessary but **not sufficient**.
 5. For the **answer key**, the default is the answer-keyed paper (§11) — "答案 / 参考答案 / 标准答案 / 评分标准" all produce it:
    - **Default: answer-keyed paper** → read pitfalls §11 and §12, then choose the derivation path by what you have:
@@ -79,6 +84,13 @@ On success, delete the task directory after final outputs and the manifest are c
 
 Do not copy source exam PDFs, generated exams, student data, credentials, or QA renders into this Skill or its repository.
 
+## Cross-Skill Link: 超星平台侧（chaoxing-ops）
+
+This Skill handles the **document side** of exams (Word layout, templates, answer keys, authoring). When the task moves to the **超星平台侧** — 建题库/组卷/发布考试/设置考试答题纸/批阅/导出成绩 — read the sibling Skill's picture-backed knowledge base instead of re-deriving it:
+
+- `~/.workbuddy/skills/chaoxing-ops/references/paper-exam/INDEX.md` — 77 张界面截图的语义节点库，按功能域 D1–D8 分类（D3 组卷、D4 试卷保密、D6 考试答题纸、D7 批阅、D8 导出归档 与本链路最相关）。
+- Boundary: keep one physical copy (in `chaoxing-ops`); **reference by path, never copy images or JSON here**. When a paper moves from "generated DOCX" to "paper published on 超星 / printed with answer sheet", hand off to that Skill's knowledge base.
+
 ## Common Drift
 
 | Temptation | Required choice |
@@ -95,6 +107,8 @@ Do not copy source exam PDFs, generated exams, student data, credentials, or QA 
 | Check only formatting and assume the questions are sound | Run `scripts/check_paper_content.py` for intra-paper duplication, front-to-back answer leakage, undefined slogan-style stems, and unit coverage; a paper with objective answers that reproduce later rubric points or asks students to guess自造代称 is not deliverable (pitfalls §13) |
 | Trust leakage findings from an objective.json that came from another course/paper (same question count) | `check_source_alignment` fails fast (exit 2) when objective stems don't match the spec; only read `leakage` when `source_alignment.verdict==pass` (pitfalls §13.8) |
 | Hand-edit the generated DOCX | Change the spec/generator and rebuild |
+| Change a question/answer in only one DOCX (e.g. the 学习通 import version) | §16 三卷同出: change all 4 sources (spec / keyed-spec / objective.json / answer md), rerun `build_three_papers.py`, cross-check all three; never patch a single docx |
+| Deliver only the 学生卷 or only the 学习通导入版 | Default to three outputs from one source: 学生卷 + 卷面标注答案卷 + 学习通导入版; answers/rubrics live in the keyed paper, no separate booklet (§16) |
 | Reuse the student-paper layout for a §10 teacher booklet | Teacher header, no 学号/姓名/score table (pitfalls §10.2); for an answer-keyed paper the student layout is required (pitfalls §11) |
 | Build an 答案卷 with the §10 teacher-header builder | Default to the answer-keyed paper from the student spec (§11.1); §10 booklet is an explicit opt-in |
 | Produce a separate teacher booklet when the user only says 答案 | Route to `answer-keyed-paper` and use `build_answer_keyed_paper.py` |
@@ -108,6 +122,7 @@ Do not copy source exam PDFs, generated exams, student data, credentials, or QA 
 | Leave answers concentrated on one option (B×6/10) or all multiple-choice = ABC | Rebalance by permuting option positions without changing any question/answer content, then gate with `scripts/check_answer_distribution.py` — hard rule for EVERY paper (pitfalls §14) |
 | Hand-pick build/gate steps after an upstream change (change answers → regenerate by memory) | Set up the three-layer `pipeline.json` and run `scripts/exam_pipeline.py` so downstream layers auto-rerun with fail-fast gates (pitfalls §15) |
 | Bake Markdown backticks / `**` / `&lt;` into the answer surface (``输出：`sum=10` ``) — looks like "code format still wrong" but code blocks are actually fine | `clean_markdown()` in derive script before `add_run`, plus MANDATORY last gate `scripts/check_final_gate.py` on finished DOCX (code paragraphs exempt); add to render.gates (pitfalls §15.6) |
+| Write “参见答案册 T30” or any other external-pointer placeholder in the answer key | Answers must be self-contained and directly usable for marking; derive script rejects external refs, and `check_final_gate.self_contained` enforces the same rule on the finished DOCX (pitfalls §15.7) |
 | Let an answer-key table autofit to its longest cell | Lock total width to the text column (pitfalls §10.4-5) |
 | Leave 「参考答案」/「评分要点」 as a bare label line at page bottom | Bind it to the first bullet with keep_with_next (pitfalls §10.4-4) |
 | Hard-code 18/6 question counts, `FULL_MARKS`, or 425/-142 indent in a verifier | Derive everything from the paper; regression-test on 3 structures (pitfalls §12.1, §12.5) |
@@ -130,6 +145,7 @@ Use the Python executable returned by the workspace dependency loader.
 python scripts/route_request.py "对比这两个 Word" standard.docx exam.docx
 python scripts/compare_docx.py standard.docx exam.docx --json-output diff.json --markdown-output diff.md
 python scripts/build_from_spec.py assets/reference.docx exam.json output.docx
+python scripts/build_three_papers.py --spec spec-A.json --objective objective-A.json --answers answer-A.md --outdir out/ --stem 课程-期末A卷  # 三卷同出（学生卷+标注答案卷+学习通导入版）
 python scripts/build_code_exam.py exam.json output.docx          # code-heavy papers (pitfalls §9, §12.8)
 python scripts/build_answer_docx.py answer.json answer.docx     # explicit teacher booklet (pitfalls §10)
 python scripts/build_answer_keyed_paper.py exam-spec-A.json objective.json answer.md answer-keyed.docx --spec-out keyed-spec.json
@@ -150,7 +166,7 @@ python scripts/exam_pipeline.py init    --config pipeline.json     # §15: recor
 python scripts/exam_pipeline.py status  --config pipeline.json     # §15: show dirty layers + where to re-run from
 python scripts/exam_pipeline.py run     --config pipeline.json     # §15: re-run from earliest dirty layer, fail-fast gates, refresh baseline
 python scripts/exam_pipeline.py run     --config pipeline.json --from content --dry-run  # §15: preview plan
-python scripts/check_final_gate.py paper.docx answer.docx    # §15.6: MANDATORY last gate — scan finished DOCX surface text for Markdown/HTML/AI residue; exit 1 on FAIL; add to render.gates LAST
+python scripts/check_final_gate.py paper.docx answer.docx    # §15.6/§15.7: MANDATORY last gate — scan finished DOCX surface text for Markdown/HTML/AI residue AND external answer-book refs; exit 1 on FAIL; add to render.gates LAST
 python scripts/unbold_substems.py paper.docx answer.docx  # §12.9: strip bold from (1)(2) sub-question stems, keep title/header bold
 ```
 
