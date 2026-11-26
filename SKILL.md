@@ -84,12 +84,15 @@ On success, delete the task directory after final outputs and the manifest are c
 
 Do not copy source exam PDFs, generated exams, student data, credentials, or QA renders into this Skill or its repository.
 
-## Cross-Skill Link: 超星平台侧（chaoxing-ops）
+## Cross-Skill Links: 从"出卷"到"发布"的完整链路
 
-This Skill handles the **document side** of exams (Word layout, templates, answer keys, authoring). When the task moves to the **超星平台侧** — 建题库/组卷/发布考试/设置考试答题纸/批阅/导出成绩 — read the sibling Skill's picture-backed knowledge base instead of re-deriving it:
+This Skill handles the **document side** (Word layout, templates, answer keys, authoring). Downstream work is owned by sibling Skills — load them **by path** at the handoff point; never re-derive their knowledge here.
 
-- `~/.workbuddy/skills/chaoxing-ops/references/paper-exam/INDEX.md` — 77 张界面截图的语义节点库，按功能域 D1–D8 分类（D3 组卷、D4 试卷保密、D6 考试答题纸、D7 批阅、D8 导出归档 与本链路最相关）。
-- Boundary: keep one physical copy (in `chaoxing-ops`); **reference by path, never copy images or JSON here**. When a paper moves from "generated DOCX" to "paper published on 超星 / printed with answer sheet", hand off to that Skill's knowledge base.
+- **流程 / 前馈 / 终检层 `exam-publish`** — `~/.workbuddy/skills/exam-publish/SKILL.md`. Once a paper is generated and the task turns to **发布到超星线下纸考**, hand off here. It owns the 前馈清单 (多选题给分规则为第一前馈)、发布前终检单、不可逆动作边界 (导入/发布/发通知)、学生可见文案回避 A/B 卷 — all decisions that must be locked **before import**. A generated paper's scoring design must match `exam-publish/references/multi-choice-scoring.md`; on conflict, escalate to the user — never pick one silently.
+- **控件 / 界面层 `chaoxing-ops`** — `~/.workbuddy/skills/chaoxing-ops/SKILL.md`. For **具体怎么点才生效** and interface lookups: `references/atomic-operations.md` (任务 I 线下发布控件原子)、`references/paper-exam/INDEX.md` (77 张界面截图语义节点；D3 组卷 / D4 保密 / D6 答题纸 / D7 批阅 / D8 导出归档 与本链路最相关)、P6 线上/线下判定.
+- **浏览器底座 `ego-browser`** — both platform Skills drive pages through it; keep the teacher login session valid.
+
+**Chain direction**: `exam-word`（生成 / 换题 / 三卷同出）→ `exam-publish`（前馈锁定 → 终检 → 发布 → 答题纸/批阅）→ `chaoxing-ops`（控件原子 + 界面语义）. Each Skill's SKILL.md links back, so **loading any one pulls in the next at the handoff**. Boundary: keep one physical copy of each knowledge base in its own Skill; **reference by path, never copy images/JSON here**.
 
 ## Common Drift
 
