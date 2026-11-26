@@ -76,8 +76,8 @@ def longest_run(seq):
 def normalize(a):
     """统一答案记号：对/错 -> √/×，去空格。"""
     s = str(a).strip().upper().replace(" ", "")
-    return {"TRUE": "√", "T": "√", "对": "√", "YES": "√", "Y": "√",
-            "FALSE": "×", "F": "×", "错": "×", "NO": "×", "N": "×"}.get(s, s)
+    return {"TRUE": "√", "T": "√", "对": "√", "正确": "√", "YES": "√", "Y": "√",
+            "FALSE": "×", "F": "×", "错": "×", "错误": "×", "NO": "×", "N": "×"}.get(s, s)
 
 
 def audit(answers, *, single_max_ratio=0.4, max_run=2,
