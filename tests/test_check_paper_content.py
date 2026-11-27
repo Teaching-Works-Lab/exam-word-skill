@@ -82,7 +82,8 @@ class ContentGateTests(unittest.TestCase):
             t = Path(tmp)
             (t / "spec.json").write_text(json.dumps(qs, ensure_ascii=False), encoding="utf-8")
             (t / "obj.json").write_text(json.dumps(
-                [{"type": "单选题", "stem": "人工智能三大流派", "answer": "B"}]), encoding="utf-8")
+                [{"type": "单选题", "stem": "人工智能三大流派中，主张模拟人脑神经网络结构、通过数据自动学习权重的是（　）。",
+                  "answer": "B"}]), encoding="utf-8")
             (t / "answer.md").write_text(ANSWER_MD, encoding="utf-8")
             with contextlib.redirect_stdout(io.StringIO()):
                 cpc.main([str(t / "spec.json"), str(t / "obj.json"), str(t / "answer.md"),

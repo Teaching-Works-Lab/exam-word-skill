@@ -83,7 +83,12 @@ def subjective_stems(spec):
         for b in page.get("blocks", []):
             t = b.get("text", "")
             if b.get("type") == "heading":
-                in_subj = ("简答" in t or "综合" in t or "分析" in t)
+                # 主观题大题标题关键词。除「简答/综合/分析」外还必须认「应用题」
+                # ——漏识会让学习通导入版少题、三卷同出断言失败（2026-11-26 实战）。
+                # 程序类卷的「程序阅读/查错/编程」同属主观题，一并覆盖。
+                in_subj = any(k in t for k in (
+                    "简答", "应用", "综合", "分析", "论述", "设计",
+                    "程序", "编程", "阅读", "查错", "改错", "证明", "计算题"))
                 continue
             if not in_subj or b.get("type") != "question" or not t.strip():
                 continue
@@ -139,9 +144,16 @@ def build_chaoxing_import(objective, spec, answers, out):
 
 
 def stem_core(stem):
-    """题干主干：去掉末尾答案括号（学生卷是空括号、标注卷已填答案），用于跨卷比对。"""
+    """题干主干：去掉末尾答案括号（学生卷是空括号、标注卷已填答案），用于跨卷比对。
+
+    标注卷括号里可能是单选字母(B)、多选组合(BCD)、判断记号(√/×)，此前只匹配
+    空括号导致多选/判断题干比对失败（2026-11-26 实战）。
+    """
     s = str(stem or "").strip()
-    s = re.sub(r"[（(]\s*[）)]\s*$", "", s)  # 末尾 （ ）/（B）/（×）
+    # 把括号内的答案归一为空：学生卷（　）/ 标注卷（B）（BCD）（√）统一成（　），
+    # 保留括号骨架，否则删空括号后与卷面文本对不上（2026-11-26 实战）。
+    s = re.sub(r"[（(][^）)]*[）)]", "（　）", s)
+    s = re.sub(r"^\s*\d+\s*[.．、]\s*", "", s)  # 题号前缀：objective stem 无题号，卷面题干有
     return norm(s)
 
 
@@ -151,7 +163,9 @@ def cross_check(student, keyed, objective):
 
     s = [p.text.strip() for p in Document(student).paragraphs if p.text.strip()]
     k = [p.text.strip() for p in Document(keyed).paragraphs if p.text.strip()]
-    s_all, k_all = norm("".join(s)), norm("".join(k))
+    # 卷面文本的括号里可能是已填答案（B/BCD/√），与 stem_core 的归一规则保持一致。
+    blank_brackets = lambda t: norm(re.sub(r"[（(][^）)]*[）)]", "（　）", t))
+    s_all, k_all = blank_brackets("".join(s)), blank_brackets("".join(k))
     cores = [stem_core(q["stem"]) for q in objective if q["stem"].strip()]
     missing_s = [x for x in cores if x and x not in s_all]
     missing_k = [x for x in cores if x and x not in k_all]
